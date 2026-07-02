@@ -23,8 +23,6 @@ const columns = [
   { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
   { title: '倍率', dataIndex: 'ratio', key: 'ratio', width: 90 },
   { title: '总收益', dataIndex: 'total_income', key: 'total_income', width: 120 },
-  { title: '总请求', dataIndex: 'total_requests', key: 'total_requests', width: 100 },
-  { title: '总 Token', dataIndex: 'total_tokens', key: 'total_tokens', width: 120 },
   { title: 'Key 预览', dataIndex: 'key_preview', key: 'key_preview', width: 160 },
   { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 180 },
   { title: '操作', key: 'action', width: 200, fixed: 'right' },
@@ -158,13 +156,14 @@ onMounted(() => {
     </div>
 
     <a-table
+      class="provider-table"
       :data-source="app.providerKeys.value"
       :columns="columns"
       :loading="app.providerKeyLoading.value"
       :pagination="false"
       row-key="id"
       size="middle"
-      :scroll="{ x: 1300 }"
+      :scroll="{ x: 'max-content' }"
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'remark'">
@@ -310,6 +309,7 @@ onMounted(() => {
 .provider-keys-page {
   max-width: 1200px;
   margin: 0 auto;
+  min-width: 0;
 }
 
 .page-header {
@@ -362,5 +362,22 @@ onMounted(() => {
   margin: 0 0 16px;
   color: #8c8c8c;
   font-size: 14px;
+}
+
+.provider-table {
+  max-width: 100%;
+}
+
+.provider-table :deep(.ant-table-wrapper) {
+  max-width: 100%;
+}
+
+.provider-table :deep(.ant-table-container) {
+  max-width: 100%;
+}
+
+.provider-table :deep(.ant-table-content) {
+  max-width: 100%;
+  overflow-x: auto;
 }
 </style>
