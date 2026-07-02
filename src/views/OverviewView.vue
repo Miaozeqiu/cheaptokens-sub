@@ -22,12 +22,9 @@ const revenuePageSize = ref(10)
 
 const revenueColumns = [
   { title: '时段', dataIndex: 'hour_bucket', key: 'hour_bucket', width: 180 },
-  { title: 'Key 备注', dataIndex: 'provider_key_remark', key: 'provider_key_remark', width: 160, ellipsis: true },
-  { title: '子收益', dataIndex: 'sub_income', key: 'sub_income', width: 120 },
+  { title: '请求数', dataIndex: 'request_count', key: 'request_count', width: 80 },
   { title: '主账户分成', dataIndex: 'parent_share', key: 'parent_share', width: 120 },
   { title: '自己所得', dataIndex: 'sub_share', key: 'sub_share', width: 120 },
-  { title: '分成比例', dataIndex: 'revenue_share_rate', key: 'revenue_share_rate', width: 100 },
-  { title: '请求数', dataIndex: 'request_count', key: 'request_count', width: 80 },
 ]
 
 async function handleRevenuePageChange(page) {
@@ -201,20 +198,11 @@ onMounted(async () => {
             <template v-if="column.key === 'hour_bucket'">
               {{ app.formatDateTime(record.hour_bucket) }}
             </template>
-            <template v-else-if="column.key === 'provider_key_remark'">
-              {{ record.provider_key_remark || '--' }}
-            </template>
-            <template v-else-if="column.key === 'sub_income'">
-              {{ app.formatMoney(record.sub_income) }}
-            </template>
             <template v-else-if="column.key === 'parent_share'">
               <span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span>
             </template>
             <template v-else-if="column.key === 'sub_share'">
               <span class="sub-share">{{ app.formatMoney(record.sub_share) }}</span>
-            </template>
-            <template v-else-if="column.key === 'revenue_share_rate'">
-              <a-tag color="blue">{{ app.formatRatio(record.revenue_share_rate) }}</a-tag>
             </template>
             <template v-else-if="column.key === 'request_count'">
               {{ Number(record.request_count || 0) }}
@@ -435,6 +423,10 @@ onMounted(async () => {
 .sub-share {
   color: #52c41a;
   font-weight: 600;
+}
+
+.amount-cell {
+  font-variant-numeric: tabular-nums;
 }
 
 .amount-cell {
