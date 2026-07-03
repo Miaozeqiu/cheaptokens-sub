@@ -178,6 +178,24 @@ onMounted(() => {
     <article class="page-card list-card">
       <div class="page-card__body">
         <header class="list-toolbar">
+          <div class="provider-switch-extra">
+            <a
+              href="https://bailian.console.aliyun.com/cn-beijing?tab=model#/model-market"
+              target="_blank"
+              rel="noreferrer"
+              class="header-doc-link"
+            >
+              百炼官网
+            </a>
+            <a
+              href="https://university.aliyun.com/course/promotion26-activity?clubTaskBiz=subTask..12714053..10277..&userCode=snge9dyx"
+              target="_blank"
+              rel="noreferrer"
+              class="header-doc-link"
+            >
+              云工开物计划
+            </a>
+          </div>
           <div class="toolbar-right">
             <button type="button" class="secondary-button" :disabled="app.providerKeyLoading.value" @click="reloadList">
               刷新
@@ -518,11 +536,59 @@ onMounted(() => {
 .list-toolbar {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
   padding-bottom: 14px;
   border-bottom: 0;
+}
+
+.provider-switch-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.header-doc-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #03a9f4;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: none;
+}
+
+.header-doc-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.22s ease;
+}
+
+.header-doc-link:hover {
+  background: transparent;
+  color: #03a9f4;
+  box-shadow: none;
+  transform: none;
+}
+
+.header-doc-link:hover::after {
+  transform: scaleX(1);
 }
 
 .toolbar-right {
@@ -718,6 +784,14 @@ onMounted(() => {
   .metrics-grid {
     gap: 0;
     flex-wrap: nowrap;
+  }
+
+  .list-toolbar {
+    align-items: stretch;
+  }
+
+  .provider-switch-extra {
+    width: 100%;
   }
 }
 </style>
