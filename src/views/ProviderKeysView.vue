@@ -188,7 +188,7 @@ onMounted(() => {
               百炼官网
             </a>
             <a
-              href="https://university.aliyun.com/course/promotion26-activity?clubTaskBiz=subTask..12714053..10277..&userCode=snge9dyx"
+              href="https://www.cheaptokens.shop/aff"
               target="_blank"
               rel="noreferrer"
               class="header-doc-link"

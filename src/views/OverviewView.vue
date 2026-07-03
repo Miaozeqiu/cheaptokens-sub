@@ -169,7 +169,11 @@ function buildQRCodePreviewUrl(proxyPath) {
   }
   const token = String(app.authToken.value || '').trim()
   const baseUrl = app.apiUrl(path)
-  return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
+  if (!token) {
+    return baseUrl
+  }
+  const separator = baseUrl.includes('?') ? '&' : '?'
+  return `${baseUrl}${separator}token=${encodeURIComponent(token)}`
 }
 
 function hasQRCode(proxyPath) {
