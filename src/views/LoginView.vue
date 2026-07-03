@@ -303,7 +303,7 @@ async function handleRegister() {
     </section>
 
     <Transition name="auth-guard-dialog">
-      <div v-if="showSendCodeDialog" class="dialog-overlay" @click.self="closeSendCodeDialog">
+      <div v-if="showSendCodeDialog" class="dialog-overlay" @mousedown.self="closeSendCodeDialog">
         <div class="dialog-card auth-guard-dialog">
           <div class="dialog-header auth-guard-dialog__header">
             <button type="button" class="dialog-close-icon" :disabled="app.sendingCode.value" @click="closeSendCodeDialog">

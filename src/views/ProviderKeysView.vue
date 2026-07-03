@@ -244,28 +244,35 @@ onMounted(() => {
       </div>
     </article>
 
-    <div v-if="showCreateDialog" class="dialog-overlay" @click.self="closeCreateDialog">
-      <div class="dialog-card">
-        <div class="dialog-header">
-          <div>
-            <h3>添加百炼 Key</h3>
-            <p class="dialog-subtitle">添加后会立即参与平台调度，较低倍率会提高调度优先级。</p>
+    <Transition name="provider-dialog">
+      <div v-if="showCreateDialog" class="dialog-overlay" @mousedown.self="closeCreateDialog">
+        <div class="dialog-card">
+          <div class="dialog-header">
+            <div class="provider-dialog-header-actions">
+              <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeCreateDialog">
+                <svg viewBox="0 0 1024 1024" aria-hidden="true">
+                  <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                type="submit"
+                form="provider-create-form"
+                class="primary-button provider-dialog-submit"
+                :disabled="app.providerKeyLoading.value"
+              >
+                {{ app.providerKeyLoading.value ? '创建中...' : '创建' }}
+              </button>
+            </div>
           </div>
-          <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeCreateDialog">
-            <svg viewBox="0 0 1024 1024" aria-hidden="true">
-              <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
-            </svg>
-          </button>
-        </div>
 
-        <form class="form-grid" @submit.prevent="handleCreate">
+          <form id="provider-create-form" class="form-grid provider-dialog-form" @submit.prevent="handleCreate">
           <label>
             <span>备注</span>
             <input
               v-model.trim="app.createProviderKeyForm.value.remark"
               type="text"
               maxlength="80"
-              placeholder="例如：主账号 / 北京地域"
+              placeholder="我自己的key"
             />
           </label>
 
@@ -274,7 +281,7 @@ onMounted(() => {
             <input
               v-model.trim="app.createProviderKeyForm.value.api_key"
               type="password"
-              placeholder="粘贴百炼 API Key"
+              placeholder="sk-ws-***"
             />
           </label>
 
@@ -283,8 +290,9 @@ onMounted(() => {
             <input
               v-model.trim="app.createProviderKeyForm.value.base_url"
               type="url"
-              placeholder="https://dashscope.aliyuncs.com"
+              placeholder="https://***.maas.aliyuncs.com"
             />
+            <span class="hint-text">示例：https://ws-mhshv8llftydyjpf.cn-beijing.maas.aliyuncs.com</span>
           </label>
 
           <label>
@@ -298,33 +306,36 @@ onMounted(() => {
             />
           </label>
 
-          <p class="hint-text">倍率范围 0.01 - 0.80，较低倍率会提高调度优先级。</p>
+          <p class="hint-text">当前设置：{{ app.formatRatio(app.createProviderKeyForm.value.ratio) }}</p>
+          <p class="hint-text">倍率范围 0.01 - 0.80，较低倍率会提高调度优先级。实际收益=300x倍率x抽成</p>
 
-          <div class="dialog-actions">
-            <button type="button" class="secondary-button" :disabled="app.providerKeyLoading.value" @click="closeCreateDialog">取消</button>
-            <button type="submit" class="primary-button" :disabled="app.providerKeyLoading.value">
-              {{ app.providerKeyLoading.value ? '创建中...' : '创建' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div v-if="showRatioDialog" class="dialog-overlay" @click.self="closeRatioEditor">
-      <div class="dialog-card">
-        <div class="dialog-header">
-          <div>
-            <h3>调整收益倍率</h3>
-            <p class="dialog-subtitle">较低倍率会提高调度优先级，但单次调用收入也会相应降低。</p>
-          </div>
-          <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeRatioEditor">
-            <svg viewBox="0 0 1024 1024" aria-hidden="true">
-              <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
-            </svg>
-          </button>
+          </form>
         </div>
+      </div>
+    </Transition>
 
-        <form class="form-grid" @submit.prevent="handleSaveRatio">
+    <Transition name="provider-dialog">
+      <div v-if="showRatioDialog" class="dialog-overlay" @mousedown.self="closeRatioEditor">
+        <div class="dialog-card">
+          <div class="dialog-header">
+            <div class="provider-dialog-header-actions">
+              <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeRatioEditor">
+                <svg viewBox="0 0 1024 1024" aria-hidden="true">
+                  <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                type="submit"
+                form="provider-ratio-form"
+                class="primary-button provider-dialog-submit"
+                :disabled="app.providerKeyLoading.value"
+              >
+                {{ app.providerKeyLoading.value ? '保存中...' : '保存' }}
+              </button>
+            </div>
+          </div>
+
+          <form id="provider-ratio-form" class="form-grid provider-dialog-form" @submit.prevent="handleSaveRatio">
           <label>
             <span>收益倍率</span>
             <input
@@ -337,78 +348,97 @@ onMounted(() => {
           </label>
 
           <p class="hint-text">当前设置：{{ app.formatRatio(editingRatio) }}</p>
+          <p class="hint-text">倍率范围 0.01 - 0.80，较低倍率会提高调度优先级。实际收益=300x倍率x抽成</p>
 
-          <div class="dialog-actions">
-            <button type="button" class="secondary-button" :disabled="app.providerKeyLoading.value" @click="closeRatioEditor">取消</button>
-            <button type="submit" class="primary-button" :disabled="app.providerKeyLoading.value">
-              {{ app.providerKeyLoading.value ? '保存中...' : '保存' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div v-if="showRemarkDialog" class="dialog-overlay" @click.self="closeRemarkEditor">
-      <div class="dialog-card">
-        <div class="dialog-header">
-          <div>
-            <h3>编辑备注</h3>
-            <p class="dialog-subtitle">备注会显示在主账户和子账户的管理表格中，建议填写清晰的识别信息。</p>
-          </div>
-          <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeRemarkEditor">
-            <svg viewBox="0 0 1024 1024" aria-hidden="true">
-              <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
-            </svg>
-          </button>
+          </form>
         </div>
+      </div>
+    </Transition>
 
-        <form class="form-grid" @submit.prevent="handleSaveRemark">
+    <Transition name="provider-dialog">
+      <div v-if="showRemarkDialog" class="dialog-overlay" @mousedown.self="closeRemarkEditor">
+        <div class="dialog-card">
+          <div class="dialog-header">
+            <div class="provider-dialog-header-actions">
+              <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeRemarkEditor">
+                <svg viewBox="0 0 1024 1024" aria-hidden="true">
+                  <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                type="submit"
+                form="provider-remark-form"
+                class="primary-button provider-dialog-submit"
+                :disabled="app.providerKeyLoading.value"
+              >
+                {{ app.providerKeyLoading.value ? '保存中...' : '保存' }}
+              </button>
+            </div>
+          </div>
+
+          <form id="provider-remark-form" class="form-grid provider-dialog-form" @submit.prevent="handleSaveRemark">
           <label>
             <span>备注</span>
             <input
               v-model.trim="editingRemark"
               type="text"
               maxlength="80"
-              placeholder="例如：主账号 / 北京地域"
+              placeholder="我自己的key"
             />
           </label>
 
-          <div class="dialog-actions">
-            <button type="button" class="secondary-button" :disabled="app.providerKeyLoading.value" @click="closeRemarkEditor">取消</button>
-            <button type="submit" class="primary-button" :disabled="app.providerKeyLoading.value">
-              {{ app.providerKeyLoading.value ? '保存中...' : '保存' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div v-if="showDeleteDialog" class="dialog-overlay" @click.self="closeDeleteDialog">
-      <div class="dialog-card dialog-card--compact">
-        <div class="dialog-header">
-          <div>
-            <h3>确认删除</h3>
-            <p class="dialog-subtitle">删除后该百炼 Key 将不再参与平台调度，此操作不可撤销。</p>
-          </div>
-          <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeDeleteDialog">
-            <svg viewBox="0 0 1024 1024" aria-hidden="true">
-              <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
-            </svg>
-          </button>
-        </div>
-
-        <div class="dialog-actions">
-          <button type="button" class="secondary-button" :disabled="app.providerKeyLoading.value" @click="closeDeleteDialog">取消</button>
-          <button type="button" class="primary-button danger-button" :disabled="app.providerKeyLoading.value" @click="handleDelete">
-            {{ app.providerKeyLoading.value ? '删除中...' : '确认删除' }}
-          </button>
+          </form>
         </div>
       </div>
-    </div>
+    </Transition>
+
+    <Transition name="provider-dialog">
+      <div v-if="showDeleteDialog" class="dialog-overlay" @mousedown.self="closeDeleteDialog">
+        <div class="dialog-card dialog-card--compact">
+          <div class="dialog-header">
+            <div class="provider-dialog-header-actions">
+              <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeDeleteDialog">
+                <svg viewBox="0 0 1024 1024" aria-hidden="true">
+                  <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
+                </svg>
+              </button>
+              <button type="button" class="primary-button provider-dialog-submit danger-button" :disabled="app.providerKeyLoading.value" @click="handleDelete">
+                {{ app.providerKeyLoading.value ? '删除中...' : '确认删除' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="provider-dialog-form provider-dialog-form--compact">
+            <p class="hint-text">删除后该百炼 Key 将不再参与平台调度，此操作不可撤销。</p>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
+.provider-dialog-enter-active,
+.provider-dialog-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.provider-dialog-enter-active .dialog-card,
+.provider-dialog-leave-active .dialog-card {
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.provider-dialog-enter-from,
+.provider-dialog-leave-to {
+  opacity: 0;
+}
+
+.provider-dialog-enter-from .dialog-card,
+.provider-dialog-leave-to .dialog-card {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+}
+
 .provider-keys-page {
   display: grid;
   gap: 18px;
@@ -586,13 +616,81 @@ onMounted(() => {
   line-height: 1.6;
 }
 
+.provider-dialog-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.provider-dialog-form {
+  display: grid;
+  gap: 16px;
+}
+
+.provider-dialog-form label {
+  justify-items: start;
+  text-align: left;
+}
+
+.provider-dialog-form label > span {
+  width: 100%;
+  text-align: left;
+  font-weight: 400;
+}
+
+.provider-dialog-form input {
+  box-shadow: none;
+}
+
+.provider-dialog-form input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.provider-dialog-form input[type='number']::-webkit-outer-spin-button,
+.provider-dialog-form input[type='number']::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.provider-dialog-form input:focus {
+  box-shadow: none;
+}
+
+.provider-dialog-form--compact {
+  padding-top: 6px;
+}
+
+.provider-dialog-submit {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #2783de;
+  box-shadow: none;
+  font-weight: 400;
+}
+
+.provider-dialog-submit:hover:not(:disabled) {
+  background: #1f72c6;
+  transform: none;
+  box-shadow: none;
+}
+
 .dialog-card--compact {
   width: min(100%, 460px);
 }
 
 .danger-button {
-  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-  box-shadow: 0 10px 20px rgba(220, 38, 38, 0.18);
+  background: #dc2626;
+  box-shadow: none;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #b42318;
+  transform: none;
+  box-shadow: none;
 }
 
 .toolbar-right .secondary-button,

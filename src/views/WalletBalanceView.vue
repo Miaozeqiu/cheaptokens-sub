@@ -114,7 +114,7 @@ onMounted(async () => {
       记录
     </button>
     <Transition name="wallet-dialog">
-      <div v-if="showCreateDialog" class="dialog-overlay" @click.self="closeCreateDialog">
+      <div v-if="showCreateDialog" class="dialog-overlay" @mousedown.self="closeCreateDialog">
         <div class="dialog-card">
         <div class="dialog-header">
           <div class="wallet-create-header-actions">
@@ -154,7 +154,7 @@ onMounted(async () => {
     </Transition>
 
     <Transition name="wallet-dialog">
-      <div v-if="showWithdrawalHistoryDialog" class="dialog-overlay" @click.self="closeWithdrawalHistoryDialog">
+      <div v-if="showWithdrawalHistoryDialog" class="dialog-overlay" @mousedown.self="closeWithdrawalHistoryDialog">
         <div class="dialog-card dialog-card--wide">
         <div class="dialog-header wallet-history-header">
           <button type="button" class="dialog-close-icon" :disabled="app.withdrawalLoading.value" @click="closeWithdrawalHistoryDialog">

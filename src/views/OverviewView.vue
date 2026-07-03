@@ -499,7 +499,7 @@ onMounted(async () => {
       </div>
     </article>
 
-    <div v-if="showCreateDialog" class="dialog-overlay" @click.self="closeCreateDialog">
+    <div v-if="showCreateDialog" class="dialog-overlay" @mousedown.self="closeCreateDialog">
       <div class="dialog-card">
         <div class="dialog-header">
           <div>
@@ -536,7 +536,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-if="showWithdrawalHistoryDialog" class="dialog-overlay" @click.self="closeWithdrawalHistoryDialog">
+    <div v-if="showWithdrawalHistoryDialog" class="dialog-overlay" @mousedown.self="closeWithdrawalHistoryDialog">
       <div class="dialog-card dialog-card--wide">
         <div class="dialog-header">
           <div>

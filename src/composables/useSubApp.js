@@ -4,8 +4,6 @@ import { fetchAuthCaptcha, fetchAuthWorkload, solveWorkload } from '../utils/aut
 
 const AUTH_STORAGE_KEY = 'cheaptokens-sub.auth'
 
-const DEFAULT_PROVIDER_BASE_URL = 'https://dashscope.aliyuncs.com'
-
 const registerForm = ref({
   name: '',
   email: '',
@@ -22,7 +20,7 @@ const loginForm = ref({
 const createProviderKeyForm = ref({
   remark: '',
   api_key: '',
-  base_url: DEFAULT_PROVIDER_BASE_URL,
+  base_url: '',
   ratio: 0.8,
 })
 
@@ -423,7 +421,7 @@ async function createProviderKey() {
     }
     createProviderKeyForm.value.remark = ''
     createProviderKeyForm.value.api_key = ''
-    createProviderKeyForm.value.base_url = DEFAULT_PROVIDER_BASE_URL
+    createProviderKeyForm.value.base_url = ''
     createProviderKeyForm.value.ratio = 0.8
     await fetchProviderKeys()
     return { ok: true, message: data.message || '创建成功' }
