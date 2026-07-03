@@ -1,12 +1,21 @@
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { apiUrl } from '../utils/apiConfig'
+import { fetchAuthCaptcha, fetchAuthWorkload, solveWorkload } from '../utils/authGuard'
 
 const AUTH_STORAGE_KEY = 'cheaptokens-sub.auth'
 
 const DEFAULT_PROVIDER_BASE_URL = 'https://dashscope.aliyuncs.com'
 
-const loginForm = ref({
+const registerForm = ref({
   name: '',
+  email: '',
+  password: '',
+  code: '',
+  invite_code: '',
+})
+
+const loginForm = ref({
+  email: '',
   password: '',
 })
 
@@ -22,10 +31,26 @@ const currentUser = ref(null)
 const sessionExpiresAt = ref('')
 
 const loginLoading = ref(false)
+const registerLoading = ref(false)
+const sendingCode = ref(false)
 const sessionLoading = ref(false)
 const walletLoading = ref(false)
 const providerKeyLoading = ref(false)
 const revenueSharesLoading = ref(false)
+const cooldown = ref(0)
+
+const authGuard = reactive({
+  captchaId: '',
+  captchaCode: '',
+  captchaImage: '',
+  workloadId: '',
+  workloadPrefix: '',
+  workloadDifficulty: 4,
+  workloadNonce: '',
+  workloadReady: false,
+  refreshing: false,
+  solving: false,
+})
 
 const wallet = ref({
   balance: 0,
@@ -44,8 +69,34 @@ const withdrawalLoading = ref(false)
 
 const isAuthenticated = computed(() => Boolean(authToken.value && currentUser.value))
 
+let cooldownTimer = null
+let workloadSolveToken = 0
+
 function hasSession() {
   return Boolean(authToken.value && currentUser.value)
+}
+
+function startCooldown(seconds) {
+  cooldown.value = seconds
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+  }
+  cooldownTimer = window.setInterval(() => {
+    if (cooldown.value <= 1) {
+      cooldown.value = 0
+      clearInterval(cooldownTimer)
+      cooldownTimer = null
+      return
+    }
+    cooldown.value -= 1
+  }, 1000)
+}
+
+function stopCooldown() {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+    cooldownTimer = null
+  }
 }
 
 function saveSession(payload) {
@@ -66,6 +117,7 @@ function clearSession() {
   authToken.value = ''
   currentUser.value = null
   sessionExpiresAt.value = ''
+  loginForm.value.password = ''
   wallet.value = {
     balance: 0,
     public_balance: 0,
@@ -77,6 +129,7 @@ function clearSession() {
   revenueSharesTotal.value = 0
   withdrawalRequests.value = []
   withdrawalTotal.value = 0
+  stopCooldown()
   localStorage.removeItem(AUTH_STORAGE_KEY)
 }
 
@@ -131,6 +184,135 @@ async function restoreSession() {
   }
 }
 
+async function refreshAuthGuard() {
+  authGuard.refreshing = true
+  authGuard.captchaCode = ''
+  authGuard.captchaId = ''
+  authGuard.captchaImage = ''
+  authGuard.workloadId = ''
+  authGuard.workloadPrefix = ''
+  authGuard.workloadNonce = ''
+  authGuard.workloadReady = false
+  const solveToken = ++workloadSolveToken
+  try {
+    const [captcha, workload] = await Promise.all([
+      fetchAuthCaptcha(),
+      fetchAuthWorkload(),
+    ])
+    authGuard.captchaId = captcha.captcha_id
+    authGuard.captchaImage = captcha.image
+    authGuard.workloadId = workload.workload_id
+    authGuard.workloadPrefix = workload.prefix
+    authGuard.workloadDifficulty = workload.difficulty
+    authGuard.solving = true
+    try {
+      const nonce = await solveWorkload(workload.prefix, workload.difficulty)
+      if (solveToken === workloadSolveToken) {
+        authGuard.workloadNonce = nonce
+        authGuard.workloadReady = true
+      }
+    } finally {
+      if (solveToken === workloadSolveToken) {
+        authGuard.solving = false
+      }
+    }
+  } finally {
+    authGuard.refreshing = false
+  }
+}
+
+async function ensureAuthGuardPayload() {
+  if (!authGuard.captchaCode.trim()) {
+    throw new Error('请输入图形验证码')
+  }
+  if (!authGuard.captchaId || !authGuard.workloadId) {
+    await refreshAuthGuard()
+  }
+  if (!authGuard.workloadNonce) {
+    authGuard.solving = true
+    try {
+      authGuard.workloadNonce = await solveWorkload(authGuard.workloadPrefix, authGuard.workloadDifficulty)
+      authGuard.workloadReady = true
+    } finally {
+      authGuard.solving = false
+    }
+  }
+  return {
+    captcha_id: authGuard.captchaId,
+    captcha_code: authGuard.captchaCode.trim(),
+    workload_id: authGuard.workloadId,
+    workload_nonce: authGuard.workloadNonce,
+  }
+}
+
+function shouldRefreshAuthGuard(response, data) {
+  return response.status === 400 && data?.code === 'auth_guard_failed'
+}
+
+async function sendCode() {
+  const email = String(registerForm.value.email || '').trim()
+  if (!email) {
+    return { ok: false, message: '请先输入邮箱地址' }
+  }
+  sendingCode.value = true
+  try {
+    const guardPayload = await ensureAuthGuardPayload()
+    const response = await fetch(apiUrl('/api/send-code'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, ...guardPayload }),
+    })
+    const data = await response.json()
+    if (shouldRefreshAuthGuard(response, data) || response.ok) {
+      await refreshAuthGuard()
+    }
+    if (!response.ok) {
+      return { ok: false, message: data.message || '验证码发送失败，请稍后重试' }
+    }
+    startCooldown(60)
+    return { ok: true, message: data.message || '验证码已发送' }
+  } catch (error) {
+    return { ok: false, message: error.message || '验证码发送失败，请稍后重试' }
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+async function submitRegister() {
+  registerLoading.value = true
+  try {
+    const response = await fetch(apiUrl('/api/sub-accounts/register'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...registerForm.value,
+        email: String(registerForm.value.email || '').trim(),
+        invite_code: String(registerForm.value.invite_code || '').trim(),
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '注册失败，请稍后重试' }
+    }
+    loginForm.value.email = String(registerForm.value.email || '').trim()
+    registerForm.value = {
+      name: '',
+      email: '',
+      password: '',
+      code: '',
+      invite_code: '',
+    }
+    stopCooldown()
+    cooldown.value = 0
+    await refreshAuthGuard()
+    return { ok: true, message: data.message || '注册成功' }
+  } catch (error) {
+    return { ok: false, message: error.message || '注册失败，请稍后重试' }
+  } finally {
+    registerLoading.value = false
+  }
+}
+
 async function submitLogin() {
   loginLoading.value = true
   try {
@@ -138,7 +320,7 @@ async function submitLogin() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: loginForm.value.name.trim(),
+        email: String(loginForm.value.email || '').trim(),
         password: loginForm.value.password,
       }),
     })
@@ -375,12 +557,17 @@ loadStoredSession()
 
 export function useSubApp() {
   return {
+    registerForm,
     loginForm,
     createProviderKeyForm,
     authToken,
     currentUser,
     sessionExpiresAt,
+    authGuard,
+    cooldown,
     loginLoading,
+    registerLoading,
+    sendingCode,
     sessionLoading,
     walletLoading,
     providerKeyLoading,
@@ -394,6 +581,9 @@ export function useSubApp() {
     saveSession,
     clearSession,
     restoreSession,
+    refreshAuthGuard,
+    sendCode,
+    submitRegister,
     submitLogin,
     logout,
     fetchWallet,
