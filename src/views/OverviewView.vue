@@ -1,11 +1,54 @@
 <script setup>
-import { onMounted, ref, computed, reactive } from 'vue'
+import { onMounted, ref, computed, reactive, watch } from 'vue'
 import { WalletOutlined, DollarOutlined, KeyOutlined } from '@ant-design/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useSubApp } from '../composables/useSubApp'
 
 const app = useSubApp()
+const route = useRoute()
+const router = useRouter()
 
-const activeTab = ref('overview')
+const activeTab = ref('withdrawal')
+
+function resolveTabFromPath(path) {
+  if (path.startsWith('/app/withdrawal')) {
+    return 'withdrawal'
+  }
+  if (path.startsWith('/app/payout-settings')) {
+    return 'payout'
+  }
+  return 'overview'
+}
+
+function routePathForTab(tabKey) {
+  switch (tabKey) {
+    case 'payout':
+      return '/app/payout-settings'
+    case 'withdrawal':
+      return '/app/withdrawal'
+    case 'overview':
+      return '/app/overview'
+    default:
+      return '/app/payout-settings'
+  }
+}
+
+function handleTabChange(nextTab) {
+  const tabKey = String(nextTab || 'withdrawal')
+  activeTab.value = tabKey
+  const nextPath = routePathForTab(tabKey)
+  if (route.path !== nextPath) {
+    router.replace(nextPath)
+  }
+}
+
+watch(
+  () => route.path,
+  (path) => {
+    activeTab.value = resolveTabFromPath(path)
+  },
+  { immediate: true },
+)
 
 // ---- 统计卡片 ----
 const totalRevenue = computed(() => {
@@ -86,6 +129,10 @@ function buildQRCodePreviewUrl(proxyPath) {
   const token = String(app.authToken.value || '').trim()
   const baseUrl = app.apiUrl(path)
   return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
+}
+
+function hasQRCode(proxyPath) {
+  return Boolean(String(proxyPath || '').trim())
 }
 
 function statusText(status) {
@@ -182,7 +229,13 @@ async function handleQRCodeSelected(kind, event) {
     payoutForm.alipay_qr_code_url = result.url || ''
     payoutForm.alipay_qr_code_proxy_path = result.proxy_path || ''
   }
-  setMessage(result.message || '上传成功', 'success')
+  const saveResult = await app.updatePayoutSettings({ ...payoutForm })
+  if (!saveResult.ok) {
+    setMessage(saveResult.message || '图片已上传，但自动保存失败', 'error')
+    return
+  }
+  syncPayoutForm()
+  setMessage(saveResult.message || '图片已上传并自动保存', 'success')
 }
 
 onMounted(async () => {
@@ -250,97 +303,8 @@ onMounted(async () => {
     </a-row>
 
     <!-- 子标签页 -->
-    <a-tabs v-model:activeKey="activeTab" class="content-tabs">
-      <a-tab-pane key="overview" tab="收益记录">
-        <a-table
-          :data-source="app.revenueShares.value"
-          :columns="revenueColumns"
-          :loading="app.revenueSharesLoading.value"
-          row-key="id"
-          size="middle"
-          :scroll="{ x: 800 }"
-          :pagination="{
-            current: revenuePage,
-            pageSize: revenuePageSize,
-            total: app.revenueSharesTotal.value,
-            showSizeChanger: false,
-            showTotal: (total) => `共 ${total} 条`,
-            onChange: handleRevenuePageChange,
-          }"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'hour_bucket'">
-              {{ app.formatDateTime(record.hour_bucket) }}
-            </template>
-            <template v-else-if="column.key === 'parent_share'">
-              <span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span>
-            </template>
-            <template v-else-if="column.key === 'sub_share'">
-              <span class="sub-share">{{ app.formatMoney(record.sub_share) }}</span>
-            </template>
-            <template v-else-if="column.key === 'request_count'">
-              {{ Number(record.request_count || 0) }}
-            </template>
-          </template>
-
-          <template #emptyText>
-            <div class="empty-text">暂无收益分成记录。</div>
-          </template>
-        </a-table>
-      </a-tab-pane>
-
+    <a-tabs v-model:activeKey="activeTab" class="content-tabs" @update:activeKey="handleTabChange">
       <a-tab-pane key="withdrawal" tab="提现">
-        <section class="payout-panel">
-          <div class="payout-panel__header">
-            <div>
-              <h3>收款信息</h3>
-              <p>子账户可在这里维护自己的微信号、支付宝账号和收款码链接。</p>
-            </div>
-            <button type="button" class="secondary-button" :disabled="app.payoutSettingsLoading.value" @click="handleSavePayoutSettings">
-              {{ app.payoutSettingsLoading.value ? '保存中...' : '保存收款信息' }}
-            </button>
-          </div>
-          <div class="form-grid payout-grid">
-            <label>
-              <span>微信号</span>
-              <input v-model.trim="payoutForm.wechat_account" type="text" maxlength="120" placeholder="请输入自己的微信号" />
-            </label>
-            <label>
-              <span>支付宝账号</span>
-              <input v-model.trim="payoutForm.alipay_account" type="text" maxlength="120" placeholder="请输入自己的支付宝账号" />
-            </label>
-            <label class="full-width">
-              <span>微信收款码 URL</span>
-              <input v-model.trim="payoutForm.wechat_qr_code_url" type="url" maxlength="1024" placeholder="请输入微信收款码图片链接" />
-              <div class="upload-row">
-                <button type="button" class="secondary-button" :disabled="app.payoutUploadLoading.wechat" @click="openQRCodePicker('wechat')">
-                  {{ app.payoutUploadLoading.wechat ? '上传中...' : '上传微信收款码' }}
-                </button>
-                <input ref="wechatQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('wechat', $event)" />
-              </div>
-            </label>
-            <label class="full-width">
-              <span>支付宝收款码 URL</span>
-              <input v-model.trim="payoutForm.alipay_qr_code_url" type="url" maxlength="1024" placeholder="请输入支付宝收款码图片链接" />
-              <div class="upload-row">
-                <button type="button" class="secondary-button" :disabled="app.payoutUploadLoading.alipay" @click="openQRCodePicker('alipay')">
-                  {{ app.payoutUploadLoading.alipay ? '上传中...' : '上传支付宝收款码' }}
-                </button>
-                <input ref="alipayQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('alipay', $event)" />
-              </div>
-            </label>
-          </div>
-          <p class="hint-text">当前账户 ID：{{ subAccountID || '--' }}。上传后的收款码预览与查看均通过后端链接访问。</p>
-          <div class="qr-preview-row">
-            <a v-if="payoutForm.wechat_qr_code_proxy_path" class="qr-preview-link" :href="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" target="_blank" rel="noreferrer">通过后端查看微信收款码</a>
-            <a v-if="payoutForm.alipay_qr_code_proxy_path" class="qr-preview-link" :href="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" target="_blank" rel="noreferrer">通过后端查看支付宝收款码</a>
-          </div>
-          <div class="qr-image-row">
-            <img v-if="payoutForm.wechat_qr_code_proxy_path" class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" alt="微信收款码" />
-            <img v-if="payoutForm.alipay_qr_code_proxy_path" class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" alt="支付宝收款码" />
-          </div>
-        </section>
-
         <div class="withdrawal-header">
           <button type="button" class="primary-button" @click="openCreateDialog">申请提现</button>
         </div>
@@ -388,6 +352,110 @@ onMounted(async () => {
             <div class="empty-text">暂无提现记录。</div>
           </template>
         </a-table>
+      </a-tab-pane>
+
+      <a-tab-pane key="overview" tab="收益记录">
+        <a-table
+          :data-source="app.revenueShares.value"
+          :columns="revenueColumns"
+          :loading="app.revenueSharesLoading.value"
+          row-key="id"
+          size="middle"
+          :scroll="{ x: 800 }"
+          :pagination="{
+            current: revenuePage,
+            pageSize: revenuePageSize,
+            total: app.revenueSharesTotal.value,
+            showSizeChanger: false,
+            showTotal: (total) => `共 ${total} 条`,
+            onChange: handleRevenuePageChange,
+          }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'hour_bucket'">
+              {{ app.formatDateTime(record.hour_bucket) }}
+            </template>
+            <template v-else-if="column.key === 'parent_share'">
+              <span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span>
+            </template>
+            <template v-else-if="column.key === 'sub_share'">
+              <span class="sub-share">{{ app.formatMoney(record.sub_share) }}</span>
+            </template>
+            <template v-else-if="column.key === 'request_count'">
+              {{ Number(record.request_count || 0) }}
+            </template>
+          </template>
+
+          <template #emptyText>
+            <div class="empty-text">暂无收益分成记录。</div>
+          </template>
+        </a-table>
+      </a-tab-pane>
+
+      <a-tab-pane key="payout" tab="收款信息">
+        <section class="payout-panel">
+          <div class="payout-panel__header">
+            <div>
+              <h3>收款信息</h3>
+              <p>子账户可在这里维护自己的微信号、支付宝账号和收款码图片。</p>
+            </div>
+            <button type="button" class="secondary-button" :disabled="app.payoutSettingsLoading.value" @click="handleSavePayoutSettings">
+              {{ app.payoutSettingsLoading.value ? '保存中...' : '保存收款信息' }}
+            </button>
+          </div>
+          <div class="form-grid payout-grid">
+            <label>
+              <span>微信号</span>
+              <input v-model.trim="payoutForm.wechat_account" type="text" maxlength="120" placeholder="请输入自己的微信号" />
+            </label>
+            <label>
+              <span>支付宝账号</span>
+              <input v-model.trim="payoutForm.alipay_account" type="text" maxlength="120" placeholder="请输入自己的支付宝账号" />
+            </label>
+            <div class="full-width qr-code-grid">
+              <section class="qr-code-card">
+                <div class="qr-code-card__header">
+                  <div class="qr-code-card__title">
+                    <span>微信收款码</span>
+                    <small>上传后自动保存</small>
+                  </div>
+                  <button type="button" class="secondary-button compact-button" :disabled="app.payoutUploadLoading.wechat" @click="openQRCodePicker('wechat')">
+                    {{ app.payoutUploadLoading.wechat ? '上传中...' : (hasQRCode(payoutForm.wechat_qr_code_proxy_path) ? '更新图片' : '上传图片') }}
+                  </button>
+                  <input ref="wechatQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('wechat', $event)" />
+                </div>
+                <a v-if="hasQRCode(payoutForm.wechat_qr_code_proxy_path)" class="qr-image-link" :href="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" target="_blank" rel="noreferrer">
+                  <img class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" alt="微信收款码" />
+                </a>
+                <div v-else class="qr-skeleton-card">
+                  <div class="qr-skeleton-box"></div>
+                  <span>暂未上传微信收款码</span>
+                </div>
+              </section>
+              <section class="qr-code-card">
+                <div class="qr-code-card__header">
+                  <div class="qr-code-card__title">
+                    <span>支付宝收款码</span>
+                    <small>上传后自动保存</small>
+                  </div>
+                  <button type="button" class="secondary-button compact-button" :disabled="app.payoutUploadLoading.alipay" @click="openQRCodePicker('alipay')">
+                    {{ app.payoutUploadLoading.alipay ? '上传中...' : (hasQRCode(payoutForm.alipay_qr_code_proxy_path) ? '更新图片' : '上传图片') }}
+                  </button>
+                  <input ref="alipayQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('alipay', $event)" />
+                </div>
+                <a v-if="hasQRCode(payoutForm.alipay_qr_code_proxy_path)" class="qr-image-link" :href="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" target="_blank" rel="noreferrer">
+                  <img class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" alt="支付宝收款码" />
+                </a>
+                <div v-else class="qr-skeleton-card">
+                  <div class="qr-skeleton-box"></div>
+                  <span>暂未上传支付宝收款码</span>
+                </div>
+              </section>
+            </div>
+          </div>
+          <p class="hint-text">当前账户 ID：{{ subAccountID || '--' }}。收款码上传后会立即自动保存，并通过后端代理展示，可随时重新上传更新。</p>
+        </section>
+        <p v-if="apiMessage" :class="['message', apiMessageType]">{{ apiMessage }}</p>
       </a-tab-pane>
     </a-tabs>
 
@@ -545,18 +613,6 @@ onMounted(async () => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.qr-preview-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.qr-preview-link {
-  font-size: 13px;
-  color: #1677ff;
-}
-
 .upload-row {
   display: flex;
   align-items: center;
@@ -567,20 +623,89 @@ onMounted(async () => {
   display: none;
 }
 
-.qr-image-row {
-  display: flex;
+.qr-code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.qr-code-card {
+  display: grid;
   gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #f0f0f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.qr-code-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qr-code-card__title {
+  display: grid;
+  gap: 2px;
+}
+
+.qr-code-card__header span {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+  font-weight: 600;
+}
+
+.qr-code-card__title small {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.qr-image-link {
+  display: block;
+  width: 100%;
 }
 
 .qr-image-preview {
-  width: 140px;
-  height: 140px;
-  object-fit: cover;
-  border-radius: 8px;
+  width: min(100%, 220px);
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  padding: 10px;
+  border-radius: 12px;
   border: 1px solid #f0f0f0;
   background: #fff;
+}
+
+.qr-skeleton-card {
+  width: min(100%, 220px);
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+}
+
+.qr-skeleton-box {
+  width: 112px;
+  height: 112px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #f7f7f7 37%, #f0f0f0 63%);
+  background-size: 400% 100%;
+  animation: qrSkeletonShimmer 1.4s ease infinite;
+}
+
+@keyframes qrSkeletonShimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
 }
 
 .withdrawal-header {
@@ -798,6 +923,17 @@ onMounted(async () => {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .qr-code-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .qr-code-grid {
+    grid-template-columns: 1fr;
+  }
+
+
 
   .payout-grid {
     grid-template-columns: 1fr;

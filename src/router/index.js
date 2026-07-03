@@ -27,11 +27,21 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/app/overview',
+          redirect: '/app/withdrawal',
         },
         {
           path: 'overview',
           name: 'sub-overview',
+          component: OverviewView,
+        },
+        {
+          path: 'payout-settings',
+          name: 'sub-payout-settings',
+          component: OverviewView,
+        },
+        {
+          path: 'withdrawal',
+          name: 'sub-withdrawal',
           component: OverviewView,
         },
         {
@@ -49,7 +59,7 @@ router.beforeEach((to) => {
     return '/login'
   }
   if (to.meta.guestOnly && hasSession()) {
-    return '/app/overview'
+    return '/app/withdrawal'
   }
   return true
 })

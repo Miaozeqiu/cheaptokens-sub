@@ -715,6 +715,7 @@ export function useSubApp() {
     payoutSettings,
     payoutSettingsLoading,
     payoutUploadLoading,
+    apiUrl,
     formatDateTime,
     formatMoney,
     formatRatio,

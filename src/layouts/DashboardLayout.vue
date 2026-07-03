@@ -32,37 +32,39 @@ async function handleLogout() {
       class="dashboard-sider"
       width="220"
     >
-      <div class="logo-area">
-        <span class="logo-sub">子账户工作台</span>
+      <div class="sider-inner">
+        <div class="logo-area">
+          <span class="logo-sub">子账户工作台</span>
+        </div>
+        <a-menu
+          :selectedKeys="selectedKeys"
+          mode="inline"
+          theme="dark"
+          class="dashboard-menu"
+        >
+          <a-menu-item key="overview" @click="router.push('/app/overview')">
+            <template #icon><DashboardOutlined /></template>
+            总览
+          </a-menu-item>
+          <a-menu-item key="provider-keys" @click="router.push('/app/provider-keys')">
+            <template #icon><KeyOutlined /></template>
+            百炼 Key 管理
+          </a-menu-item>
+        </a-menu>
+        <div class="sider-user-panel">
+          <div class="sider-user-meta">
+            <span class="sider-user-label">当前账号</span>
+            <strong class="sider-user-name">{{ app.currentUser.value?.name || '子账户' }}</strong>
+          </div>
+          <a-button type="text" class="logout-btn" block @click="handleLogout">
+            <template #icon><LogoutOutlined /></template>
+            退出登录
+          </a-button>
+        </div>
       </div>
-      <a-menu
-        v-model:selectedKeys="selectedKeys"
-        mode="inline"
-        theme="dark"
-        class="dashboard-menu"
-      >
-        <a-menu-item key="overview" @click="router.push('/app/overview')">
-          <template #icon><DashboardOutlined /></template>
-          总览
-        </a-menu-item>
-        <a-menu-item key="provider-keys" @click="router.push('/app/provider-keys')">
-          <template #icon><KeyOutlined /></template>
-          百炼 Key 管理
-        </a-menu-item>
-      </a-menu>
     </a-layout-sider>
 
     <a-layout>
-      <a-layout-header class="dashboard-header">
-        <div class="header-user">
-          <span class="user-name">{{ app.currentUser.value?.name || '子账户' }}</span>
-        </div>
-        <a-button type="text" class="logout-btn" @click="handleLogout">
-          <template #icon><LogoutOutlined /></template>
-          退出
-        </a-button>
-      </a-layout-header>
-
       <a-layout-content class="dashboard-content">
         <router-view />
       </a-layout-content>
@@ -77,6 +79,12 @@ async function handleLogout() {
 
 .dashboard-sider {
   background: #001529;
+}
+
+.sider-inner {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo-area {
@@ -95,40 +103,40 @@ async function handleLogout() {
 
 .dashboard-menu {
   border-inline-end: none;
+  flex: 1;
+  min-height: 0;
 }
 
-.dashboard-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 0 24px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
-  height: 56px;
-  line-height: 56px;
-}
-
-.header-user {
+.sider-user-panel {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.3;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.user-name {
+.sider-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sider-user-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sider-user-name {
   font-size: 14px;
   font-weight: 600;
-  color: #262626;
-}
-
-.user-email {
-  font-size: 12px;
-  color: #8c8c8c;
+  color: #fff;
 }
 
 .logout-btn {
-  color: #ff4d4f;
+  justify-content: flex-start;
+  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .dashboard-content {
@@ -140,10 +148,6 @@ async function handleLogout() {
 @media (max-width: 768px) {
   .dashboard-content {
     padding: 16px;
-  }
-
-  .header-user {
-    display: none;
   }
 }
 </style>
