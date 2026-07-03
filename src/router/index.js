@@ -4,6 +4,8 @@ import LoginView from '../views/LoginView.vue'
 import DashboardLayout from '../layouts/DashboardLayout.vue'
 import OverviewView from '../views/OverviewView.vue'
 import ProviderKeysView from '../views/ProviderKeysView.vue'
+import WalletBalanceView from '../views/WalletBalanceView.vue'
+import MyView from '../views/MyView.vue'
 
 const { hasSession } = useSubApp()
 
@@ -27,27 +29,48 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/app/withdrawal',
+          redirect: '/app/wallet',
+        },
+        {
+          path: 'wallet',
+          name: 'sub-wallet',
+          component: WalletBalanceView,
         },
         {
           path: 'overview',
-          name: 'sub-overview',
-          component: OverviewView,
+          redirect: '/app/me/overview',
         },
         {
           path: 'payout-settings',
-          name: 'sub-payout-settings',
-          component: OverviewView,
+          redirect: '/app/me/payout-settings',
         },
         {
           path: 'withdrawal',
-          name: 'sub-withdrawal',
-          component: OverviewView,
+          redirect: '/app/wallet',
         },
         {
           path: 'provider-keys',
           name: 'sub-provider-keys',
           component: ProviderKeysView,
+        },
+        {
+          path: 'me',
+          name: 'sub-me',
+          component: MyView,
+        },
+        {
+          path: 'me/profile',
+          redirect: '/app/me',
+        },
+        {
+          path: 'me/overview',
+          name: 'sub-me-overview',
+          component: OverviewView,
+        },
+        {
+          path: 'me/payout-settings',
+          name: 'sub-me-payout-settings',
+          component: OverviewView,
         },
       ],
     },
@@ -59,7 +82,7 @@ router.beforeEach((to) => {
     return '/login'
   }
   if (to.meta.guestOnly && hasSession()) {
-    return '/app/withdrawal'
+    return '/app/wallet'
   }
   return true
 })

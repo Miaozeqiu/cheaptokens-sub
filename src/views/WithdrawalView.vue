@@ -1,36 +1,23 @@
 <script setup>
-import { onMounted, ref, computed, reactive } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { showToast } from '../composables/useToast'
 import { useSubApp } from '../composables/useSubApp'
 
 const app = useSubApp()
-
 const currentPage = ref(1)
 const pageSize = ref(10)
-
 const showCreateDialog = ref(false)
 const createForm = reactive({
   amount: 0,
   remark: '',
 })
-const apiMessage = ref('')
-const apiMessageType = ref('info')
 
-const totalPages = computed(() => {
-  return Math.ceil(Number(app.withdrawalTotal.value) / pageSize.value) || 1
-})
-
-const columns = [
-  { title: '申请时间', dataIndex: 'created_at', key: 'created_at', width: 180 },
-  { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
-  { title: '备注', dataIndex: 'remark', key: 'remark', ellipsis: true },
-  { title: '审批备注', dataIndex: 'admin_remark', key: 'admin_remark', ellipsis: true },
-  { title: '审批时间', dataIndex: 'reviewed_at', key: 'reviewed_at', width: 180 },
-]
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(Number(app.withdrawalTotal.value || 0) / pageSize.value)),
+)
 
 function setMessage(text, type = 'info') {
-  apiMessage.value = text
-  apiMessageType.value = type
+  showToast(text, type)
 }
 
 function statusText(status) {
@@ -42,16 +29,14 @@ function statusText(status) {
   }
 }
 
-function statusColor(status) {
-  switch (status) {
-    case 'pending': return 'orange'
-    case 'approved': return 'green'
-    case 'rejected': return 'red'
-    default: return 'default'
-  }
+function formatTableTime(value) {
+  const text = app.formatDateTime(value)
+  if (!text || text === '--') return '--'
+  return text.replace(/:\d{2}$/, '')
 }
 
 async function handlePageChange(page) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return
   currentPage.value = page
   await app.fetchWithdrawalRequests(page, pageSize.value)
 }
@@ -88,8 +73,11 @@ async function handleSubmit() {
   }
 }
 
-onMounted(() => {
-  app.fetchWithdrawalRequests(currentPage.value, pageSize.value)
+onMounted(async () => {
+  await Promise.all([
+    app.fetchWallet(),
+    app.fetchWithdrawalRequests(currentPage.value, pageSize.value),
+  ])
 })
 </script>
 
@@ -100,61 +88,62 @@ onMounted(() => {
         <h2 class="page-title">提现</h2>
         <p class="page-subtitle">申请提取你的收益余额，提交后等待主账户审批。</p>
       </div>
-      <div class="page-actions">
-        <button type="button" class="primary-button" @click="openCreateDialog">申请提现</button>
+      <button type="button" class="primary-button" @click="openCreateDialog">申请提现</button>
+    </div>
+
+    <div class="balance-banner app-shell-card">
+      <div class="balance-copy">
+        <span class="balance-label">当前可用余额</span>
+        <span class="balance-value">{{ app.formatMoney(app.wallet.value?.balance) }}</span>
       </div>
+      <span class="balance-note">审批通过后会从子账户余额中扣减</span>
     </div>
 
-    <div class="balance-banner">
-      <span class="balance-label">当前可用余额</span>
-      <span class="balance-value">{{ app.formatMoney(app.wallet.value?.balance) }}</span>
-    </div>
+    <article class="page-card">
+      <div class="page-card__body">
+        <div v-if="app.withdrawalLoading.value && !app.withdrawalRequests.value.length" class="empty-state">
+          <h4>正在加载…</h4>
+        </div>
+        <div v-else-if="!app.withdrawalRequests.value.length" class="empty-state">
+          <h4>暂无提现记录</h4>
+          <p>提交提现申请后，可在此查看审批进度。</p>
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>申请时间</th>
+                <th>金额</th>
+                <th>状态</th>
+                <th>备注</th>
+                <th>审批备注</th>
+                <th>审批时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in app.withdrawalRequests.value" :key="record.id">
+                <td class="time-text">{{ formatTableTime(record.created_at) }}</td>
+                <td><strong class="amount-cell">{{ app.formatMoney(record.amount) }}</strong></td>
+                <td>
+                  <span class="pill status-pill" :class="record.status">{{ statusText(record.status) }}</span>
+                </td>
+                <td class="muted-text">{{ record.remark || '--' }}</td>
+                <td class="muted-text">{{ record.admin_remark || '--' }}</td>
+                <td class="time-text">{{ record.reviewed_at ? formatTableTime(record.reviewed_at) : '--' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <p v-if="apiMessage" :class="['message', apiMessageType]">{{ apiMessage }}</p>
-
-    <a-card class="table-card">
-      <a-table
-        :data-source="app.withdrawalRequests.value"
-        :columns="columns"
-        :loading="app.withdrawalLoading.value"
-        row-key="id"
-        size="middle"
-        :scroll="{ x: 700 }"
-        :pagination="{
-          current: currentPage,
-          pageSize: pageSize,
-          total: app.withdrawalTotal.value,
-          showSizeChanger: false,
-          showTotal: (total) => `共 ${total} 条`,
-          onChange: handlePageChange,
-        }"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'created_at'">
-            {{ app.formatDateTime(record.created_at) }}
-          </template>
-          <template v-else-if="column.key === 'amount'">
-            <span class="amount-cell">{{ app.formatMoney(record.amount) }}</span>
-          </template>
-          <template v-else-if="column.key === 'status'">
-            <a-tag :color="statusColor(record.status)">{{ statusText(record.status) }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'remark'">
-            {{ record.remark || '--' }}
-          </template>
-          <template v-else-if="column.key === 'admin_remark'">
-            {{ record.admin_remark || '--' }}
-          </template>
-          <template v-else-if="column.key === 'reviewed_at'">
-            {{ record.reviewed_at ? app.formatDateTime(record.reviewed_at) : '--' }}
-          </template>
-        </template>
-
-        <template #emptyText>
-          <div class="empty-text">暂无提现记录。</div>
-        </template>
-      </a-table>
-    </a-card>
+        <footer v-if="app.withdrawalTotal.value > 0" class="list-foot">
+          <span class="page-meta">第 {{ currentPage }} / {{ totalPages }} 页</span>
+          <div class="foot-actions">
+            <button type="button" class="secondary-button" :disabled="currentPage <= 1 || app.withdrawalLoading.value" @click="handlePageChange(currentPage - 1)">上一页</button>
+            <button type="button" class="secondary-button" :disabled="currentPage >= totalPages || app.withdrawalLoading.value" @click="handlePageChange(currentPage + 1)">下一页</button>
+          </div>
+        </footer>
+      </div>
+    </article>
 
     <div v-if="showCreateDialog" class="dialog-overlay" @click.self="closeCreateDialog">
       <div class="dialog-card">
@@ -165,22 +154,20 @@ onMounted(() => {
           </div>
           <button type="button" class="dialog-close-icon" :disabled="app.withdrawalLoading.value" @click="closeCreateDialog">
             <svg viewBox="0 0 1024 1024" aria-hidden="true">
-              <path d="M566.97558594 521.09667969L856.8828125 231.18945312c14.63378906-14.63378906 14.63378906-38.75976563 0-53.39355468l-1.58203125-1.58203125c-14.63378906-14.63378906-38.75976563-14.63378906-53.39355469 0L512 466.51660156 222.09277344 176.21386719c-14.63378906-14.63378906-38.75976563-14.63378906-53.39355469 0l-1.58203125 1.58203125c-15.02929688 14.63378906-15.02929688 38.75976563 0 53.39355469l289.90722656 289.90722656L167.1171875 811.00390625c-14.63378906 14.63378906-14.63378906 38.75976563 0 53.39355469l1.58203125 1.58203125c14.63378906 14.63378906 38.75976563 14.63378906 53.39355469 0L512 576.07226563 801.90722656 865.97949219c14.63378906 14.63378906 38.75976563 14.63378906 53.39355469 0l1.58203125-1.58203125c14.63378906-14.63378906 14.63378906-38.75976563 0-53.39355469L566.97558594 521.09667969z" fill="currentColor"></path>
+              <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
             </svg>
           </button>
         </div>
 
-        <form class="form" @submit.prevent="handleSubmit">
-          <div class="form-grid">
-            <label class="full-width">
-              <span>提现金额</span>
-              <input v-model.number="createForm.amount" type="number" min="0.01" step="0.01" placeholder="请输入提现金额" required />
-            </label>
-            <label class="full-width">
-              <span>备注（可选）</span>
-              <input v-model.trim="createForm.remark" type="text" maxlength="200" placeholder="填写备注信息" />
-            </label>
-          </div>
+        <form class="form-grid" @submit.prevent="handleSubmit">
+          <label>
+            <span>提现金额</span>
+            <input v-model.number="createForm.amount" type="number" min="0.01" step="0.01" placeholder="请输入提现金额" required />
+          </label>
+          <label>
+            <span>备注（可选）</span>
+            <input v-model.trim="createForm.remark" type="text" maxlength="200" placeholder="填写备注信息" />
+          </label>
           <p class="hint-text">当前余额：{{ app.formatMoney(app.wallet.value?.balance) }}</p>
 
           <div class="dialog-actions">
@@ -197,7 +184,9 @@ onMounted(() => {
 
 <style scoped>
 .withdrawal-page {
-  max-width: 960px;
+  display: grid;
+  gap: 18px;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
@@ -205,216 +194,93 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .page-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 4px;
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.03em;
 }
 
 .page-subtitle {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
   font-size: 14px;
-  color: rgba(0, 0, 0, 0.45);
-  margin: 0;
-}
-
-.page-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .balance-banner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
-  border-radius: 8px;
-  margin-bottom: 20px;
+  padding: 18px 20px;
+}
+
+.balance-copy {
+  display: grid;
+  gap: 8px;
 }
 
 .balance-label {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.65);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 .balance-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1677ff;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.04em;
 }
 
-.message {
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-.message.success {
-  background: #f6ffed;
-  color: #52c41a;
-}
-
-.message.error {
-  background: #fff2f0;
-  color: #ff4d4f;
-}
-
-.table-card {
-  margin-bottom: 24px;
+.balance-note,
+.page-meta,
+.muted-text,
+.time-text {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .amount-cell {
-  font-weight: 600;
-  color: #1677ff;
+  color: var(--accent);
 }
 
-.empty-text {
-  padding: 32px 0;
-  color: rgba(0, 0, 0, 0.4);
-  text-align: center;
+.status-pill.pending {
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+.status-pill.approved {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.status-pill.rejected {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.list-foot {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.dialog-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 420px;
-  max-width: 90vw;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
 }
 
-.dialog-header h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 4px;
-}
-
-.dialog-subtitle {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.45);
-  margin: 0;
-}
-
-.dialog-close-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  color: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dialog-close-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.form-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.form-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-grid label span {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
-}
-
-.form-grid input {
-  padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.form-grid input:focus {
-  border-color: #1677ff;
-}
-
-.full-width {
-  grid-column: 1 / -1;
+.foot-actions {
+  display: inline-flex;
+  gap: 8px;
 }
 
 .hint-text {
+  margin: 0;
+  color: var(--text-secondary);
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
-  margin: 8px 0 0;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-
-.primary-button {
-  padding: 6px 16px;
-  background: #1677ff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.primary-button:hover:not(:disabled) {
-  background: #4096ff;
-}
-
-.primary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.secondary-button {
-  padding: 6px 16px;
-  background: #fff;
-  color: rgba(0, 0, 0, 0.88);
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.secondary-button:hover:not(:disabled) {
-  border-color: #1677ff;
-  color: #1677ff;
-}
-
-.secondary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  line-height: 1.6;
 }
 </style>
