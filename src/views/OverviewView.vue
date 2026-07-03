@@ -41,8 +41,19 @@ const createForm = reactive({
   amount: 0,
   remark: '',
 })
+const payoutForm = reactive({
+  wechat_account: '',
+  alipay_account: '',
+  wechat_qr_code_url: '',
+  alipay_qr_code_url: '',
+  wechat_qr_code_proxy_path: '',
+  alipay_qr_code_proxy_path: '',
+})
+const wechatQRCodeInput = ref(null)
+const alipayQRCodeInput = ref(null)
 const apiMessage = ref('')
 const apiMessageType = ref('info')
+const subAccountID = computed(() => Number(app.currentUser.value?.id || 0))
 
 const withdrawalColumns = [
   { title: '申请时间', dataIndex: 'created_at', key: 'created_at', width: 180 },
@@ -56,6 +67,25 @@ const withdrawalColumns = [
 function setMessage(text, type = 'info') {
   apiMessage.value = text
   apiMessageType.value = type
+}
+
+function syncPayoutForm() {
+  payoutForm.wechat_account = String(app.payoutSettings.value?.wechat_account || '')
+  payoutForm.alipay_account = String(app.payoutSettings.value?.alipay_account || '')
+  payoutForm.wechat_qr_code_url = String(app.payoutSettings.value?.wechat_qr_code_url || '')
+  payoutForm.alipay_qr_code_url = String(app.payoutSettings.value?.alipay_qr_code_url || '')
+  payoutForm.wechat_qr_code_proxy_path = String(app.payoutSettings.value?.wechat_qr_code_proxy_path || '')
+  payoutForm.alipay_qr_code_proxy_path = String(app.payoutSettings.value?.alipay_qr_code_proxy_path || '')
+}
+
+function buildQRCodePreviewUrl(proxyPath) {
+  const path = String(proxyPath || '').trim()
+  if (!path) {
+    return ''
+  }
+  const token = String(app.authToken.value || '').trim()
+  const baseUrl = app.apiUrl(path)
+  return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
 }
 
 function statusText(status) {
@@ -113,13 +143,57 @@ async function handleSubmit() {
   }
 }
 
+async function handleSavePayoutSettings() {
+  setMessage('', 'info')
+  const result = await app.updatePayoutSettings({ ...payoutForm })
+  if (result.ok) {
+    syncPayoutForm()
+    setMessage(result.message || '收款信息已保存', 'success')
+    return
+  }
+  setMessage(result.message || '保存失败', 'error')
+}
+
+function openQRCodePicker(kind) {
+  if (kind === 'wechat') {
+    wechatQRCodeInput.value?.click()
+    return
+  }
+  alipayQRCodeInput.value?.click()
+}
+
+async function handleQRCodeSelected(kind, event) {
+  const input = event?.target
+  const file = input?.files?.[0]
+  if (!file) {
+    return
+  }
+  setMessage('', 'info')
+  const result = await app.uploadPayoutQRCode(kind, file)
+  input.value = ''
+  if (!result.ok) {
+    setMessage(result.message || '上传失败', 'error')
+    return
+  }
+  if (kind === 'wechat') {
+    payoutForm.wechat_qr_code_url = result.url || ''
+    payoutForm.wechat_qr_code_proxy_path = result.proxy_path || ''
+  } else {
+    payoutForm.alipay_qr_code_url = result.url || ''
+    payoutForm.alipay_qr_code_proxy_path = result.proxy_path || ''
+  }
+  setMessage(result.message || '上传成功', 'success')
+}
+
 onMounted(async () => {
   await Promise.all([
     app.fetchWallet(),
     app.fetchRevenueShares(1, revenuePageSize.value),
     app.fetchProviderKeys(),
     app.fetchWithdrawalRequests(1, withdrawalPageSize.value),
+    app.fetchPayoutSettings(),
   ])
+  syncPayoutForm()
 })
 </script>
 
@@ -216,6 +290,57 @@ onMounted(async () => {
       </a-tab-pane>
 
       <a-tab-pane key="withdrawal" tab="提现">
+        <section class="payout-panel">
+          <div class="payout-panel__header">
+            <div>
+              <h3>收款信息</h3>
+              <p>子账户可在这里维护自己的微信号、支付宝账号和收款码链接。</p>
+            </div>
+            <button type="button" class="secondary-button" :disabled="app.payoutSettingsLoading.value" @click="handleSavePayoutSettings">
+              {{ app.payoutSettingsLoading.value ? '保存中...' : '保存收款信息' }}
+            </button>
+          </div>
+          <div class="form-grid payout-grid">
+            <label>
+              <span>微信号</span>
+              <input v-model.trim="payoutForm.wechat_account" type="text" maxlength="120" placeholder="请输入自己的微信号" />
+            </label>
+            <label>
+              <span>支付宝账号</span>
+              <input v-model.trim="payoutForm.alipay_account" type="text" maxlength="120" placeholder="请输入自己的支付宝账号" />
+            </label>
+            <label class="full-width">
+              <span>微信收款码 URL</span>
+              <input v-model.trim="payoutForm.wechat_qr_code_url" type="url" maxlength="1024" placeholder="请输入微信收款码图片链接" />
+              <div class="upload-row">
+                <button type="button" class="secondary-button" :disabled="app.payoutUploadLoading.wechat" @click="openQRCodePicker('wechat')">
+                  {{ app.payoutUploadLoading.wechat ? '上传中...' : '上传微信收款码' }}
+                </button>
+                <input ref="wechatQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('wechat', $event)" />
+              </div>
+            </label>
+            <label class="full-width">
+              <span>支付宝收款码 URL</span>
+              <input v-model.trim="payoutForm.alipay_qr_code_url" type="url" maxlength="1024" placeholder="请输入支付宝收款码图片链接" />
+              <div class="upload-row">
+                <button type="button" class="secondary-button" :disabled="app.payoutUploadLoading.alipay" @click="openQRCodePicker('alipay')">
+                  {{ app.payoutUploadLoading.alipay ? '上传中...' : '上传支付宝收款码' }}
+                </button>
+                <input ref="alipayQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('alipay', $event)" />
+              </div>
+            </label>
+          </div>
+          <p class="hint-text">当前账户 ID：{{ subAccountID || '--' }}。上传后的收款码预览与查看均通过后端链接访问。</p>
+          <div class="qr-preview-row">
+            <a v-if="payoutForm.wechat_qr_code_proxy_path" class="qr-preview-link" :href="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" target="_blank" rel="noreferrer">通过后端查看微信收款码</a>
+            <a v-if="payoutForm.alipay_qr_code_proxy_path" class="qr-preview-link" :href="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" target="_blank" rel="noreferrer">通过后端查看支付宝收款码</a>
+          </div>
+          <div class="qr-image-row">
+            <img v-if="payoutForm.wechat_qr_code_proxy_path" class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" alt="微信收款码" />
+            <img v-if="payoutForm.alipay_qr_code_proxy_path" class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" alt="支付宝收款码" />
+          </div>
+        </section>
+
         <div class="withdrawal-header">
           <button type="button" class="primary-button" @click="openCreateDialog">申请提现</button>
         </div>
@@ -385,6 +510,77 @@ onMounted(async () => {
 
 .content-tabs {
   margin-bottom: 24px;
+}
+
+.payout-panel {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+}
+
+.payout-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.payout-panel__header h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.payout-panel__header p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.payout-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.qr-preview-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.qr-preview-link {
+  font-size: 13px;
+  color: #1677ff;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.qr-image-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.qr-image-preview {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  background: #fff;
 }
 
 .withdrawal-header {
@@ -595,5 +791,16 @@ onMounted(async () => {
 .secondary-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 760px) {
+  .payout-panel__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .payout-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -66,6 +66,19 @@ const revenueSharesTotal = ref(0)
 const withdrawalRequests = ref([])
 const withdrawalTotal = ref(0)
 const withdrawalLoading = ref(false)
+const payoutSettingsLoading = ref(false)
+const payoutUploadLoading = reactive({
+  wechat: false,
+  alipay: false,
+})
+const payoutSettings = ref({
+  wechat_account: '',
+  alipay_account: '',
+  wechat_qr_code_url: '',
+  alipay_qr_code_url: '',
+  wechat_qr_code_proxy_path: '',
+  alipay_qr_code_proxy_path: '',
+})
 
 const isAuthenticated = computed(() => Boolean(authToken.value && currentUser.value))
 
@@ -129,6 +142,14 @@ function clearSession() {
   revenueSharesTotal.value = 0
   withdrawalRequests.value = []
   withdrawalTotal.value = 0
+  payoutSettings.value = {
+    wechat_account: '',
+    alipay_account: '',
+    wechat_qr_code_url: '',
+    alipay_qr_code_url: '',
+    wechat_qr_code_proxy_path: '',
+    alipay_qr_code_proxy_path: '',
+  }
   stopCooldown()
   localStorage.removeItem(AUTH_STORAGE_KEY)
 }
@@ -553,6 +574,99 @@ async function createWithdrawalRequest(amount, remark) {
   }
 }
 
+async function fetchPayoutSettings() {
+  payoutSettingsLoading.value = true
+  try {
+    const response = await authFetch('/api/sub-accounts/payout-settings')
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '读取收款信息失败' }
+    }
+    payoutSettings.value = {
+      wechat_account: String(data.wechat_account || ''),
+      alipay_account: String(data.alipay_account || ''),
+      wechat_qr_code_url: String(data.wechat_qr_code_url || ''),
+      alipay_qr_code_url: String(data.alipay_qr_code_url || ''),
+      wechat_qr_code_proxy_path: String(data.wechat_qr_code_proxy_path || ''),
+      alipay_qr_code_proxy_path: String(data.alipay_qr_code_proxy_path || ''),
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, message: '无法连接收款信息接口' }
+  } finally {
+    payoutSettingsLoading.value = false
+  }
+}
+
+async function updatePayoutSettings(payload) {
+  payoutSettingsLoading.value = true
+  try {
+    const response = await authFetch('/api/sub-accounts/payout-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wechat_account: String(payload.wechat_account || '').trim(),
+        alipay_account: String(payload.alipay_account || '').trim(),
+        wechat_qr_code_url: String(payload.wechat_qr_code_url || '').trim(),
+        alipay_qr_code_url: String(payload.alipay_qr_code_url || '').trim(),
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '保存收款信息失败' }
+    }
+    payoutSettings.value = {
+      wechat_account: String(data.item?.wechat_account || ''),
+      alipay_account: String(data.item?.alipay_account || ''),
+      wechat_qr_code_url: String(data.item?.wechat_qr_code_url || ''),
+      alipay_qr_code_url: String(data.item?.alipay_qr_code_url || ''),
+      wechat_qr_code_proxy_path: String(data.item?.wechat_qr_code_proxy_path || ''),
+      alipay_qr_code_proxy_path: String(data.item?.alipay_qr_code_proxy_path || ''),
+    }
+    return { ok: true, message: data.message || '收款信息已保存' }
+  } catch {
+    return { ok: false, message: '保存收款信息失败，请确认后端服务可用' }
+  } finally {
+    payoutSettingsLoading.value = false
+  }
+}
+
+async function uploadPayoutQRCode(kind, file) {
+  const uploadKind = String(kind || '').trim().toLowerCase()
+  if (!['wechat', 'alipay'].includes(uploadKind)) {
+    return { ok: false, message: '上传类型不合法' }
+  }
+  if (!(file instanceof File)) {
+    return { ok: false, message: '请选择要上传的图片' }
+  }
+
+  payoutUploadLoading[uploadKind] = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await authFetch(`/api/sub-accounts/payout-settings/upload?kind=${encodeURIComponent(uploadKind)}`, {
+      method: 'POST',
+      body: formData,
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '上传收款码失败' }
+    }
+    if (uploadKind === 'wechat') {
+      payoutSettings.value.wechat_qr_code_url = String(data.url || '')
+      payoutSettings.value.wechat_qr_code_proxy_path = String(data.proxy_path || '')
+    } else {
+      payoutSettings.value.alipay_qr_code_url = String(data.url || '')
+      payoutSettings.value.alipay_qr_code_proxy_path = String(data.proxy_path || '')
+    }
+    return { ok: true, message: data.message || '上传成功', url: String(data.url || ''), proxy_path: String(data.proxy_path || '') }
+  } catch {
+    return { ok: false, message: '上传收款码失败，请确认后端服务可用' }
+  } finally {
+    payoutUploadLoading[uploadKind] = false
+  }
+}
+
 loadStoredSession()
 
 export function useSubApp() {
@@ -598,8 +712,14 @@ export function useSubApp() {
     withdrawalRequests,
     withdrawalTotal,
     withdrawalLoading,
+    payoutSettings,
+    payoutSettingsLoading,
+    payoutUploadLoading,
     formatDateTime,
     formatMoney,
     formatRatio,
+    fetchPayoutSettings,
+    updatePayoutSettings,
+    uploadPayoutQRCode,
   }
 }
