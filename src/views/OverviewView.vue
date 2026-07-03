@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, ref, computed, reactive, watch } from 'vue'
-import { WalletOutlined, DollarOutlined, KeyOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSubApp } from '../composables/useSubApp'
 
@@ -59,18 +58,26 @@ const activeKeyCount = computed(() => {
   return app.providerKeys.value.filter((item) => item.status === 'active').length
 })
 
+const withdrawalTotalPages = computed(() =>
+  Math.max(1, Math.ceil(Number(app.withdrawalTotal.value || 0) / Number(withdrawalPageSize.value || 10))),
+)
+
+const revenueTotalPages = computed(() =>
+  Math.max(1, Math.ceil(Number(app.revenueSharesTotal.value || 0) / Number(revenuePageSize.value || 10))),
+)
+
+function formatTableTime(value) {
+  const text = app.formatDateTime(value)
+  if (!text || text === '--') return '--'
+  return text.replace(/:\d{2}$/, '')
+}
+
 // ---- 收益记录 ----
 const revenuePage = ref(1)
 const revenuePageSize = ref(10)
 
-const revenueColumns = [
-  { title: '时段', dataIndex: 'hour_bucket', key: 'hour_bucket', width: 180 },
-  { title: '请求数', dataIndex: 'request_count', key: 'request_count', width: 80 },
-  { title: '主账户分成', dataIndex: 'parent_share', key: 'parent_share', width: 120 },
-  { title: '自己所得', dataIndex: 'sub_share', key: 'sub_share', width: 120 },
-]
-
 async function handleRevenuePageChange(page) {
+  if (page < 1 || page > revenueTotalPages.value || page === revenuePage.value) return
   revenuePage.value = page
   await app.fetchRevenueShares(page, revenuePageSize.value)
 }
@@ -98,14 +105,8 @@ const apiMessage = ref('')
 const apiMessageType = ref('info')
 const subAccountID = computed(() => Number(app.currentUser.value?.id || 0))
 
-const withdrawalColumns = [
-  { title: '申请时间', dataIndex: 'created_at', key: 'created_at', width: 180 },
-  { title: '金额', dataIndex: 'amount', key: 'amount', width: 120 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
-  { title: '备注', dataIndex: 'remark', key: 'remark', ellipsis: true },
-  { title: '审批备注', dataIndex: 'admin_remark', key: 'admin_remark', ellipsis: true },
-  { title: '审批时间', dataIndex: 'reviewed_at', key: 'reviewed_at', width: 180 },
-]
+const hasWechatQR = computed(() => hasQRCode(payoutForm.wechat_qr_code_proxy_path))
+const hasAlipayQR = computed(() => hasQRCode(payoutForm.alipay_qr_code_proxy_path))
 
 function setMessage(text, type = 'info') {
   apiMessage.value = text
@@ -144,16 +145,8 @@ function statusText(status) {
   }
 }
 
-function statusColor(status) {
-  switch (status) {
-    case 'pending': return 'orange'
-    case 'approved': return 'green'
-    case 'rejected': return 'red'
-    default: return 'default'
-  }
-}
-
 async function handleWithdrawalPageChange(page) {
+  if (page < 1 || page > withdrawalTotalPages.value || page === withdrawalPage.value) return
   withdrawalPage.value = page
   await app.fetchWithdrawalRequests(page, withdrawalPageSize.value)
 }
@@ -252,214 +245,291 @@ onMounted(async () => {
 
 <template>
   <div class="overview-page">
-    <h2 class="page-title">收益与提现</h2>
+    <section v-if="activeTab !== 'payout'" class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">钱包余额</span>
+        <strong class="metric-value">{{ app.formatMoney(app.wallet.value.balance) }}</strong>
+        <p class="metric-hint">公共余额 {{ app.formatMoney(app.wallet.value.public_balance) }}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">总收益分成</span>
+        <strong class="metric-value">{{ app.formatMoney(totalRevenue) }}</strong>
+        <p class="metric-hint">来自百炼 Key 调度分成</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">可用百炼 Key</span>
+        <strong class="metric-value">{{ activeKeyCount }} / {{ app.providerKeys.value.length }}</strong>
+        <p class="metric-hint">可用 / 总计</p>
+      </article>
+    </section>
 
-    <!-- 统计卡片 -->
-    <a-row :gutter="[16, 16]" class="stats-row">
-      <a-col :xs="24" :sm="12" :lg="8">
-        <a-card :loading="app.walletLoading.value" class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon wallet-icon">
-              <WalletOutlined />
-            </div>
-            <div class="stat-info">
-              <div class="stat-label">钱包余额</div>
-              <div class="stat-value">{{ app.formatMoney(app.wallet.value.balance) }}</div>
-              <div class="stat-sub">公共余额：{{ app.formatMoney(app.wallet.value.public_balance) }}</div>
-            </div>
-          </div>
-        </a-card>
-      </a-col>
+    <div class="section-tabs" role="tablist" aria-label="收益与提现分区">
+      <button
+        type="button"
+        class="section-tab"
+        :class="{ active: activeTab === 'withdrawal' }"
+        role="tab"
+        :aria-selected="activeTab === 'withdrawal'"
+        @click="handleTabChange('withdrawal')"
+      >
+        提现
+      </button>
+      <button
+        type="button"
+        class="section-tab"
+        :class="{ active: activeTab === 'overview' }"
+        role="tab"
+        :aria-selected="activeTab === 'overview'"
+        @click="handleTabChange('overview')"
+      >
+        收益记录
+      </button>
+      <button
+        type="button"
+        class="section-tab"
+        :class="{ active: activeTab === 'payout' }"
+        role="tab"
+        :aria-selected="activeTab === 'payout'"
+        @click="handleTabChange('payout')"
+      >
+        收款信息
+      </button>
+    </div>
 
-      <a-col :xs="24" :sm="12" :lg="8">
-        <a-card :loading="app.revenueSharesLoading.value" class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon revenue-icon">
-              <DollarOutlined />
-            </div>
-            <div class="stat-info">
-              <div class="stat-label">总收益分成</div>
-              <div class="stat-value">{{ app.formatMoney(totalRevenue) }}</div>
-              <div class="stat-sub">来自百炼 Key 调度分成</div>
-            </div>
-          </div>
-        </a-card>
-      </a-col>
+    <p v-if="apiMessage && activeTab !== 'payout'" :class="['message', apiMessageType]">{{ apiMessage }}</p>
 
-      <a-col :xs="24" :sm="12" :lg="8">
-        <a-card :loading="app.providerKeyLoading.value" class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon key-icon">
-              <KeyOutlined />
-            </div>
-            <div class="stat-info">
-              <div class="stat-label">可用百炼 Key</div>
-              <div class="stat-value">{{ activeKeyCount }} / {{ app.providerKeys.value.length }}</div>
-              <div class="stat-sub">可用 / 总计</div>
-            </div>
-          </div>
-        </a-card>
-      </a-col>
-    </a-row>
-
-    <!-- 子标签页 -->
-    <a-tabs v-model:activeKey="activeTab" class="content-tabs" @update:activeKey="handleTabChange">
-      <a-tab-pane key="withdrawal" tab="提现">
-        <div class="withdrawal-header">
-          <button type="button" class="primary-button" @click="openCreateDialog">申请提现</button>
+    <article v-if="activeTab === 'withdrawal'" class="list-card">
+      <header class="list-toolbar">
+        <div class="toolbar-left">
+          <h3 class="list-title">提现记录</h3>
+          <span class="list-meta">共 {{ app.withdrawalTotal.value }} 条</span>
         </div>
+        <button type="button" class="action-button" @click="openCreateDialog">申请提现</button>
+      </header>
 
-        <p v-if="apiMessage" :class="['message', apiMessageType]">{{ apiMessage }}</p>
+      <div class="table-body">
+        <div v-if="app.withdrawalLoading.value && !app.withdrawalRequests.value.length" class="table-state">
+          <span>正在加载…</span>
+        </div>
+        <div v-else-if="!app.withdrawalRequests.value.length" class="table-state">
+          <h4>暂无提现记录</h4>
+          <p>提交提现申请后，可在此查看审批进度。</p>
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>申请时间</th>
+                <th>金额</th>
+                <th>状态</th>
+                <th>备注</th>
+                <th>审批备注</th>
+                <th>审批时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in app.withdrawalRequests.value" :key="record.id">
+                <td class="time-text">{{ formatTableTime(record.created_at) }}</td>
+                <td><strong class="amount-cell">{{ app.formatMoney(record.amount) }}</strong></td>
+                <td>
+                  <span class="status-pill" :class="record.status">{{ statusText(record.status) }}</span>
+                </td>
+                <td class="muted-text">{{ record.remark || '--' }}</td>
+                <td class="muted-text">{{ record.admin_remark || '--' }}</td>
+                <td class="time-text">{{ record.reviewed_at ? formatTableTime(record.reviewed_at) : '--' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <a-table
-          :data-source="app.withdrawalRequests.value"
-          :columns="withdrawalColumns"
-          :loading="app.withdrawalLoading.value"
-          row-key="id"
-          size="middle"
-          :scroll="{ x: 700 }"
-          :pagination="{
-            current: withdrawalPage,
-            pageSize: withdrawalPageSize,
-            total: app.withdrawalTotal.value,
-            showSizeChanger: false,
-            showTotal: (total) => `共 ${total} 条`,
-            onChange: handleWithdrawalPageChange,
-          }"
+      <footer v-if="app.withdrawalTotal.value > 0" class="list-foot">
+        <span class="muted-text">第 {{ withdrawalPage }} / {{ withdrawalTotalPages }} 页</span>
+        <div class="action-group">
+          <button type="button" class="action-button wide" :disabled="withdrawalPage <= 1 || app.withdrawalLoading.value" @click="handleWithdrawalPageChange(withdrawalPage - 1)">上一页</button>
+          <button type="button" class="action-button wide" :disabled="withdrawalPage >= withdrawalTotalPages || app.withdrawalLoading.value" @click="handleWithdrawalPageChange(withdrawalPage + 1)">下一页</button>
+        </div>
+      </footer>
+    </article>
+
+    <article v-else-if="activeTab === 'overview'" class="list-card">
+      <header class="list-toolbar">
+        <div class="toolbar-left">
+          <h3 class="list-title">收益分成</h3>
+          <span class="list-meta">共 {{ app.revenueSharesTotal.value }} 条</span>
+        </div>
+      </header>
+
+      <div class="table-body">
+        <div v-if="app.revenueSharesLoading.value && !app.revenueShares.value.length" class="table-state">
+          <span>正在加载…</span>
+        </div>
+        <div v-else-if="!app.revenueShares.value.length" class="table-state">
+          <h4>暂无收益分成记录</h4>
+          <p>百炼 Key 参与调度后，收益将按小时汇总显示。</p>
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时段</th>
+                <th>请求数</th>
+                <th>主账户分成</th>
+                <th>自己所得</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in app.revenueShares.value" :key="record.id">
+                <td class="time-text">{{ formatTableTime(record.hour_bucket) }}</td>
+                <td>{{ Number(record.request_count || 0).toLocaleString('zh-CN') }}</td>
+                <td><span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span></td>
+                <td><strong class="sub-share">{{ app.formatMoney(record.sub_share) }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <footer v-if="app.revenueSharesTotal.value > 0" class="list-foot">
+        <span class="muted-text">第 {{ revenuePage }} / {{ revenueTotalPages }} 页</span>
+        <div class="action-group">
+          <button type="button" class="action-button wide" :disabled="revenuePage <= 1 || app.revenueSharesLoading.value" @click="handleRevenuePageChange(revenuePage - 1)">上一页</button>
+          <button type="button" class="action-button wide" :disabled="revenuePage >= revenueTotalPages || app.revenueSharesLoading.value" @click="handleRevenuePageChange(revenuePage + 1)">下一页</button>
+        </div>
+      </footer>
+    </article>
+
+    <article v-else class="list-card payout-card">
+      <header class="list-toolbar">
+        <div class="toolbar-left">
+          <h3 class="list-title">收款信息</h3>
+          <span class="list-meta">账户 ID {{ subAccountID || '--' }}</span>
+        </div>
+        <button
+          type="button"
+          class="action-button"
+          :disabled="app.payoutSettingsLoading.value"
+          @click="handleSavePayoutSettings"
         >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'created_at'">
-              {{ app.formatDateTime(record.created_at) }}
-            </template>
-            <template v-else-if="column.key === 'amount'">
-              <span class="amount-cell">{{ app.formatMoney(record.amount) }}</span>
-            </template>
-            <template v-else-if="column.key === 'status'">
-              <a-tag :color="statusColor(record.status)">{{ statusText(record.status) }}</a-tag>
-            </template>
-            <template v-else-if="column.key === 'remark'">
-              {{ record.remark || '--' }}
-            </template>
-            <template v-else-if="column.key === 'admin_remark'">
-              {{ record.admin_remark || '--' }}
-            </template>
-            <template v-else-if="column.key === 'reviewed_at'">
-              {{ record.reviewed_at ? app.formatDateTime(record.reviewed_at) : '--' }}
-            </template>
-          </template>
+          {{ app.payoutSettingsLoading.value ? '保存中...' : '保存' }}
+        </button>
+      </header>
 
-          <template #emptyText>
-            <div class="empty-text">暂无提现记录。</div>
-          </template>
-        </a-table>
-      </a-tab-pane>
+      <p v-if="apiMessage" :class="['message', apiMessageType]">{{ apiMessage }}</p>
 
-      <a-tab-pane key="overview" tab="收益记录">
-        <a-table
-          :data-source="app.revenueShares.value"
-          :columns="revenueColumns"
-          :loading="app.revenueSharesLoading.value"
-          row-key="id"
-          size="middle"
-          :scroll="{ x: 800 }"
-          :pagination="{
-            current: revenuePage,
-            pageSize: revenuePageSize,
-            total: app.revenueSharesTotal.value,
-            showSizeChanger: false,
-            showTotal: (total) => `共 ${total} 条`,
-            onChange: handleRevenuePageChange,
-          }"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'hour_bucket'">
-              {{ app.formatDateTime(record.hour_bucket) }}
-            </template>
-            <template v-else-if="column.key === 'parent_share'">
-              <span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span>
-            </template>
-            <template v-else-if="column.key === 'sub_share'">
-              <span class="sub-share">{{ app.formatMoney(record.sub_share) }}</span>
-            </template>
-            <template v-else-if="column.key === 'request_count'">
-              {{ Number(record.request_count || 0) }}
-            </template>
-          </template>
+      <form class="payout-form" @submit.prevent="handleSavePayoutSettings">
+        <div class="payout-col">
+          <label class="payout-field">
+            <span>微信号</span>
+            <input
+              v-model.trim="payoutForm.wechat_account"
+              type="text"
+              maxlength="120"
+              placeholder="请输入微信号"
+            />
+          </label>
 
-          <template #emptyText>
-            <div class="empty-text">暂无收益分成记录。</div>
-          </template>
-        </a-table>
-      </a-tab-pane>
-
-      <a-tab-pane key="payout" tab="收款信息">
-        <section class="payout-panel">
-          <div class="payout-panel__header">
-            <div>
-              <h3>收款信息</h3>
-              <p>子账户可在这里维护自己的微信号、支付宝账号和收款码图片。</p>
+          <div class="payout-field">
+            <div class="payout-field__head">
+              <span>微信收款码</span>
+              <button
+                type="button"
+                class="text-link-button"
+                :disabled="app.payoutUploadLoading.wechat"
+                @click="openQRCodePicker('wechat')"
+              >
+                {{ app.payoutUploadLoading.wechat ? '上传中...' : (hasWechatQR ? '更换' : '上传') }}
+              </button>
             </div>
-            <button type="button" class="secondary-button" :disabled="app.payoutSettingsLoading.value" @click="handleSavePayoutSettings">
-              {{ app.payoutSettingsLoading.value ? '保存中...' : '保存收款信息' }}
+            <input
+              ref="wechatQRCodeInput"
+              class="hidden-file-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              @change="handleQRCodeSelected('wechat', $event)"
+            />
+            <a
+              v-if="hasWechatQR"
+              class="qr-thumb"
+              :href="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img
+                :src="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)"
+                alt="微信收款码"
+              />
+            </a>
+            <button
+              v-else
+              type="button"
+              class="qr-thumb qr-thumb--empty"
+              :disabled="app.payoutUploadLoading.wechat"
+              @click="openQRCodePicker('wechat')"
+            >
+              点击上传
             </button>
           </div>
-          <div class="form-grid payout-grid">
-            <label>
-              <span>微信号</span>
-              <input v-model.trim="payoutForm.wechat_account" type="text" maxlength="120" placeholder="请输入自己的微信号" />
-            </label>
-            <label>
-              <span>支付宝账号</span>
-              <input v-model.trim="payoutForm.alipay_account" type="text" maxlength="120" placeholder="请输入自己的支付宝账号" />
-            </label>
-            <div class="full-width qr-code-grid">
-              <section class="qr-code-card">
-                <div class="qr-code-card__header">
-                  <div class="qr-code-card__title">
-                    <span>微信收款码</span>
-                    <small>上传后自动保存</small>
-                  </div>
-                  <button type="button" class="secondary-button compact-button" :disabled="app.payoutUploadLoading.wechat" @click="openQRCodePicker('wechat')">
-                    {{ app.payoutUploadLoading.wechat ? '上传中...' : (hasQRCode(payoutForm.wechat_qr_code_proxy_path) ? '更新图片' : '上传图片') }}
-                  </button>
-                  <input ref="wechatQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('wechat', $event)" />
-                </div>
-                <a v-if="hasQRCode(payoutForm.wechat_qr_code_proxy_path)" class="qr-image-link" :href="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" target="_blank" rel="noreferrer">
-                  <img class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.wechat_qr_code_proxy_path)" alt="微信收款码" />
-                </a>
-                <div v-else class="qr-skeleton-card">
-                  <div class="qr-skeleton-box"></div>
-                  <span>暂未上传微信收款码</span>
-                </div>
-              </section>
-              <section class="qr-code-card">
-                <div class="qr-code-card__header">
-                  <div class="qr-code-card__title">
-                    <span>支付宝收款码</span>
-                    <small>上传后自动保存</small>
-                  </div>
-                  <button type="button" class="secondary-button compact-button" :disabled="app.payoutUploadLoading.alipay" @click="openQRCodePicker('alipay')">
-                    {{ app.payoutUploadLoading.alipay ? '上传中...' : (hasQRCode(payoutForm.alipay_qr_code_proxy_path) ? '更新图片' : '上传图片') }}
-                  </button>
-                  <input ref="alipayQRCodeInput" class="hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp" @change="handleQRCodeSelected('alipay', $event)" />
-                </div>
-                <a v-if="hasQRCode(payoutForm.alipay_qr_code_proxy_path)" class="qr-image-link" :href="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" target="_blank" rel="noreferrer">
-                  <img class="qr-image-preview" :src="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)" alt="支付宝收款码" />
-                </a>
-                <div v-else class="qr-skeleton-card">
-                  <div class="qr-skeleton-box"></div>
-                  <span>暂未上传支付宝收款码</span>
-                </div>
-              </section>
-            </div>
-          </div>
-          <p class="hint-text">当前账户 ID：{{ subAccountID || '--' }}。收款码上传后会立即自动保存，并通过后端代理展示，可随时重新上传更新。</p>
-        </section>
-        <p v-if="apiMessage" :class="['message', apiMessageType]">{{ apiMessage }}</p>
-      </a-tab-pane>
-    </a-tabs>
+        </div>
 
-    <!-- 申请提现弹窗 -->
+        <div class="payout-col">
+          <label class="payout-field">
+            <span>支付宝账号</span>
+            <input
+              v-model.trim="payoutForm.alipay_account"
+              type="text"
+              maxlength="120"
+              placeholder="请输入支付宝账号"
+            />
+          </label>
+
+          <div class="payout-field">
+            <div class="payout-field__head">
+              <span>支付宝收款码</span>
+              <button
+                type="button"
+                class="text-link-button"
+                :disabled="app.payoutUploadLoading.alipay"
+                @click="openQRCodePicker('alipay')"
+              >
+                {{ app.payoutUploadLoading.alipay ? '上传中...' : (hasAlipayQR ? '更换' : '上传') }}
+              </button>
+            </div>
+            <input
+              ref="alipayQRCodeInput"
+              class="hidden-file-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              @change="handleQRCodeSelected('alipay', $event)"
+            />
+            <a
+              v-if="hasAlipayQR"
+              class="qr-thumb"
+              :href="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img
+                :src="buildQRCodePreviewUrl(payoutForm.alipay_qr_code_proxy_path)"
+                alt="支付宝收款码"
+              />
+            </a>
+            <button
+              v-else
+              type="button"
+              class="qr-thumb qr-thumb--empty"
+              :disabled="app.payoutUploadLoading.alipay"
+              @click="openQRCodePicker('alipay')"
+            >
+              点击上传
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <p class="payout-note">收款码上传后自动保存，主账户审批提现时会参考以上信息。</p>
+    </article>
+
     <div v-if="showCreateDialog" class="dialog-overlay" @click.self="closeCreateDialog">
       <div class="dialog-card">
         <div class="dialog-header">
@@ -501,329 +571,405 @@ onMounted(async () => {
 
 <style scoped>
 .overview-page {
-  max-width: 1200px;
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
-.page-title {
-  margin: 0 0 24px;
-  font-size: 22px;
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.metric-label {
+  font-size: 12px;
   font-weight: 600;
-  color: #262626;
+  color: var(--text-secondary);
 }
 
-.stats-row {
-  margin-bottom: 24px;
+.metric-value {
+  font-size: clamp(20px, 2.2vw, 26px);
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
 }
 
-.stat-card {
-  border-radius: 8px;
+.metric-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
-.stat-content {
+.section-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-tab {
+  position: relative;
+  padding: 0 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.section-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -13px;
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.section-tab:hover {
+  color: var(--text-primary);
+}
+
+.section-tab.active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.section-tab.active::after {
+  background: var(--text-primary);
+}
+
+.list-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.payout-card {
+  min-height: auto;
+}
+
+.payout-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.payout-col {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.payout-field {
+  display: grid;
+  gap: 8px;
+}
+
+.payout-field span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.payout-field__head {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.stat-icon {
-  display: flex;
+.payout-field input {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #fff;
+  outline: none;
+}
+
+.payout-field input:focus {
+  border-color: #93c5fd;
+}
+
+.qr-thumb {
+  display: block;
+  width: 160px;
+  height: 160px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.qr-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.qr-thumb--empty {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.wallet-icon {
-  background: rgba(22, 119, 255, 0.1);
-  color: #1677ff;
-}
-
-.revenue-icon {
-  background: rgba(82, 196, 26, 0.1);
-  color: #52c41a;
-}
-
-.key-icon {
-  background: rgba(250, 173, 20, 0.1);
-  color: #faad14;
-}
-
-.stat-info {
-  min-width: 0;
-  flex: 1;
-}
-
-.stat-label {
+  border-style: dashed;
+  color: var(--text-secondary);
   font-size: 13px;
-  color: #8c8c8c;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: #262626;
-  line-height: 1.2;
-}
-
-.stat-sub {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #bfbfbf;
-}
-
-.content-tabs {
-  margin-bottom: 24px;
-}
-
-.payout-panel {
-  margin-bottom: 16px;
-  padding: 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  border-radius: 10px;
-}
-
-.payout-panel__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.payout-panel__header h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
   font-weight: 600;
-  color: #262626;
 }
 
-.payout-panel__header p {
-  margin: 0;
+.text-link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.45);
+  font-weight: 600;
 }
 
-.payout-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.upload-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.payout-note {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 .hidden-file-input {
   display: none;
 }
 
-.qr-code-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.qr-code-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid #f0f0f0;
-  border-radius: 14px;
-  background: #fff;
-}
-
-.qr-code-card__header {
+.list-toolbar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.qr-code-card__title {
-  display: grid;
-  gap: 2px;
-}
-
-.qr-code-card__header span {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
-  font-weight: 600;
-}
-
-.qr-code-card__title small {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.4);
-}
-
-.qr-image-link {
-  display: block;
-  width: 100%;
-}
-
-.qr-image-preview {
-  width: min(100%, 220px);
-  aspect-ratio: 1 / 1;
-  object-fit: contain;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid #f0f0f0;
-  background: #fff;
-}
-
-.qr-skeleton-card {
-  width: min(100%, 220px);
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
-  border: 1px solid #f0f0f0;
-  background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  text-align: center;
-  color: rgba(0, 0, 0, 0.4);
-  font-size: 12px;
-}
-
-.qr-skeleton-box {
-  width: 112px;
-  height: 112px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #f7f7f7 37%, #f0f0f0 63%);
-  background-size: 400% 100%;
-  animation: qrSkeletonShimmer 1.4s ease infinite;
-}
-
-@keyframes qrSkeletonShimmer {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
-  }
-}
-
-.withdrawal-header {
+.toolbar-left {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  align-items: baseline;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.balance-banner {
+.list-title {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.list-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.action-button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover:not(:disabled) {
+  background: #039be5;
+  color: #fff;
+}
+
+.action-button.compact {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.action-button.wide {
+  min-width: 72px;
+}
+
+.table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 12px;
+  overflow: auto;
+}
+
+.table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table-wrap table {
+  min-width: 720px;
+}
+
+.table-state {
+  display: grid;
+  gap: 8px;
+  place-content: center;
+  min-height: 220px;
+  padding: 24px;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  text-align: center;
+}
+
+.table-state h4 {
+  margin: 0;
+}
+
+.table-state p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.list-foot {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 12px 20px;
-  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
-  border-radius: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
 }
 
-.balance-label {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.65);
+.action-group {
+  display: inline-flex;
+  gap: 8px;
 }
 
-.balance-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1677ff;
+.muted-text,
+.time-text {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .parent-share {
-  color: #ff4d4f;
+  color: #ef4444;
 }
 
 .sub-share {
-  color: #52c41a;
-  font-weight: 600;
+  color: #10b981;
 }
 
 .amount-cell {
   font-variant-numeric: tabular-nums;
+  color: #0284c7;
 }
 
-.amount-cell {
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 600;
-  color: #1677ff;
 }
 
-.empty-text {
-  padding: 32px 0;
-  color: rgba(0, 0, 0, 0.4);
-  text-align: center;
+.status-pill.pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.status-pill.approved {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.status-pill.rejected {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
 }
 
 .message {
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 13px;
-  margin-bottom: 12px;
 }
 
 .message.success {
-  background: #f6ffed;
-  color: #52c41a;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
 }
 
 .message.error {
-  background: #fff2f0;
-  color: #ff4d4f;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  padding: 24px;
+  background: rgba(10, 10, 10, 0.34);
 }
 
 .dialog-card {
-  background: #fff;
-  border-radius: 12px;
+  width: min(100%, 420px);
   padding: 24px;
-  width: 420px;
-  max-width: 90vw;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .dialog-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
 }
 
 .dialog-header h3 {
-  font-size: 18px;
-  font-weight: 600;
   margin: 0 0 4px;
+  font-size: 18px;
 }
 
 .dialog-subtitle {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.45);
   margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .dialog-close-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
   padding: 4px;
-  color: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .dialog-close-icon svg {
@@ -844,20 +990,21 @@ onMounted(async () => {
 
 .form-grid label span {
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .form-grid input {
+  min-height: 38px;
   padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  font-size: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #fff;
   outline: none;
-  transition: border-color 0.2s;
 }
 
 .form-grid input:focus {
-  border-color: #1677ff;
+  border-color: #93c5fd;
 }
 
 .full-width {
@@ -865,9 +1012,9 @@ onMounted(async () => {
 }
 
 .hint-text {
+  margin: 12px 0 0;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
-  margin: 8px 0 0;
+  color: var(--text-secondary);
 }
 
 .dialog-actions {
@@ -877,65 +1024,39 @@ onMounted(async () => {
   margin-top: 20px;
 }
 
+.primary-button,
+.secondary-button {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .primary-button {
-  padding: 6px 16px;
-  background: #1677ff;
+  border: 0;
+  background: var(--accent);
   color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: #4096ff;
-}
-
-.primary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background: #039be5;
 }
 
 .secondary-button {
-  padding: 6px 16px;
+  border: 1px solid var(--border-color);
   background: #fff;
-  color: rgba(0, 0, 0, 0.88);
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
+  color: var(--text-primary);
 }
 
-.secondary-button:hover:not(:disabled) {
-  border-color: #1677ff;
-  color: #1677ff;
-}
-
-.secondary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
-  .payout-panel__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .qr-code-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .qr-code-grid {
-    grid-template-columns: 1fr;
-  }
-
-
-
-  .payout-grid {
+  .payout-form {
     grid-template-columns: 1fr;
   }
 }

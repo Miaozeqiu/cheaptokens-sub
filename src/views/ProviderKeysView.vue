@@ -1,12 +1,7 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import {
-  PlusOutlined,
-  ReloadOutlined,
-  DeleteOutlined,
-  EditOutlined,
-} from '@ant-design/icons-vue'
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { useSubApp } from '../composables/useSubApp'
 
 const app = useSubApp()
@@ -18,15 +13,13 @@ const editingKeyId = ref(null)
 const editingRatio = ref(0.8)
 const editingRemark = ref('')
 
-const columns = [
-  { title: '备注', dataIndex: 'remark', key: 'remark', width: 160, ellipsis: true },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
-  { title: '倍率', dataIndex: 'ratio', key: 'ratio', width: 90 },
-  { title: '总收益', dataIndex: 'total_income', key: 'total_income', width: 120 },
-  { title: 'Key 预览', dataIndex: 'key_preview', key: 'key_preview', width: 160 },
-  { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 180 },
-  { title: '操作', key: 'action', width: 200, fixed: 'right' },
-]
+const activeKeyCount = computed(() =>
+  app.providerKeys.value.filter((item) => item.status === 'active').length,
+)
+
+const totalIncome = computed(() =>
+  app.providerKeys.value.reduce((sum, item) => sum + Number(item.total_income || 0), 0),
+)
 
 function formatProviderKeyStatus(status) {
   const map = {
@@ -38,14 +31,16 @@ function formatProviderKeyStatus(status) {
   return map[status] || status || '未知'
 }
 
-function statusColor(status) {
-  const map = {
-    active: 'green',
-    insufficient_balance: 'orange',
-    invalid: 'red',
-    disabled: 'default',
-  }
-  return map[status] || 'default'
+function statusChipClass(status) {
+  if (status === 'active') return 'status-active'
+  if (status === 'insufficient_balance' || status === 'invalid') return 'status-warning'
+  return 'status-muted'
+}
+
+function formatTableTime(value) {
+  const text = app.formatDateTime(value)
+  if (!text || text === '--') return '--'
+  return text.replace(/:\d{2}$/, '')
 }
 
 function openCreateDialog() {
@@ -138,82 +133,96 @@ onMounted(() => {
 
 <template>
   <div class="provider-keys-page">
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">百炼 Key 管理</h2>
-        <p class="page-subtitle">管理你的百炼 API Key，参与平台调度获取收益分成。</p>
+    <section class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">百炼 Key 总数</span>
+        <strong class="metric-value">{{ app.providerKeys.value.length }}</strong>
+        <p class="metric-hint">已添加的 Key 数量</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">可用 Key</span>
+        <strong class="metric-value">{{ activeKeyCount }}</strong>
+        <p class="metric-hint">当前可参与调度</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">累计收益</span>
+        <strong class="metric-value">{{ app.formatMoney(totalIncome) }}</strong>
+        <p class="metric-hint">所有 Key 汇总</p>
+      </article>
+    </section>
+
+    <article class="list-card">
+      <header class="list-toolbar">
+        <div class="toolbar-left">
+          <h3 class="list-title">百炼 Key 列表</h3>
+          <span class="list-meta">管理 API Key，参与平台调度获取收益</span>
+        </div>
+        <div class="toolbar-right">
+          <button type="button" class="icon-action-button" :disabled="app.providerKeyLoading.value" aria-label="刷新" @click="app.fetchProviderKeys">
+            <ReloadOutlined />
+          </button>
+          <button type="button" class="action-button" @click="openCreateDialog">
+            <PlusOutlined />
+            <span>添加 Key</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="table-body">
+        <div v-if="app.providerKeyLoading.value && !app.providerKeys.value.length" class="table-state">
+          <span>正在加载…</span>
+        </div>
+        <div v-else-if="!app.providerKeys.value.length" class="table-state">
+          <h4>暂无百炼 Key</h4>
+          <p>添加一个百炼 API Key 后即可参与平台调度。</p>
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>备注</th>
+                <th>状态</th>
+                <th>倍率</th>
+                <th>总收益</th>
+                <th>Key 预览</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in app.providerKeys.value" :key="record.id">
+                <td>
+                  <button type="button" class="text-link-button" @click="openRemarkEditor(record)">
+                    {{ record.remark || '添加备注' }}
+                  </button>
+                </td>
+                <td>
+                  <span class="status-pill" :class="statusChipClass(record.status)">
+                    {{ formatProviderKeyStatus(record.status) }}
+                  </span>
+                </td>
+                <td>
+                  <button type="button" class="ratio-chip" @click="openRatioEditor(record)">
+                    {{ app.formatRatio(record.ratio) }}
+                  </button>
+                </td>
+                <td><strong>{{ app.formatMoney(record.total_income) }}</strong></td>
+                <td><code class="key-preview">{{ record.key_preview }}</code></td>
+                <td class="time-text">{{ formatTableTime(record.created_at) }}</td>
+                <td>
+                  <div class="row-actions">
+                    <button type="button" class="text-link-button" @click="openRemarkEditor(record)">备注</button>
+                    <button type="button" class="text-link-button" @click="openRatioEditor(record)">倍率</button>
+                    <button type="button" class="text-link-button danger" @click="handleDelete(record.id)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="header-actions">
-        <a-button :loading="app.providerKeyLoading.value" @click="app.fetchProviderKeys">
-          <template #icon><ReloadOutlined /></template>
-          刷新
-        </a-button>
-        <a-button type="primary" @click="openCreateDialog">
-          <template #icon><PlusOutlined /></template>
-          添加 Key
-        </a-button>
-      </div>
-    </div>
+    </article>
 
-    <a-table
-      class="provider-table"
-      :data-source="app.providerKeys.value"
-      :columns="columns"
-      :loading="app.providerKeyLoading.value"
-      :pagination="false"
-      row-key="id"
-      size="middle"
-      :scroll="{ x: 'max-content' }"
-    >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'remark'">
-          <a-button type="link" size="small" @click="openRemarkEditor(record)">
-            {{ record.remark || '添加备注' }}
-          </a-button>
-        </template>
-        <template v-else-if="column.key === 'status'">
-          <a-tag :color="statusColor(record.status)">
-            {{ formatProviderKeyStatus(record.status) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'ratio'">
-          <a-button type="link" size="small" @click="openRatioEditor(record)">
-            {{ app.formatRatio(record.ratio) }}
-          </a-button>
-        </template>
-        <template v-else-if="column.key === 'total_income'">
-          {{ app.formatMoney(record.total_income) }}
-        </template>
-        <template v-else-if="column.key === 'key_preview'">
-          <code class="key-preview">{{ record.key_preview }}</code>
-        </template>
-        <template v-else-if="column.key === 'created_at'">
-          {{ app.formatDateTime(record.created_at) }}
-        </template>
-        <template v-else-if="column.key === 'action'">
-          <a-space>
-            <a-button type="link" size="small" @click="openRemarkEditor(record)">
-              <template #icon><EditOutlined /></template>
-              备注
-            </a-button>
-            <a-button type="link" size="small" @click="openRatioEditor(record)">
-              <template #icon><EditOutlined /></template>
-              倍率
-            </a-button>
-            <a-button type="link" danger size="small" @click="handleDelete(record.id)">
-              <template #icon><DeleteOutlined /></template>
-              删除
-            </a-button>
-          </a-space>
-        </template>
-      </template>
-
-      <template #emptyText>
-        <div class="empty-text">暂无百炼 Key，可先添加一个用于参与调度。</div>
-      </template>
-    </a-table>
-
-    <!-- 创建 Key 对话框 -->
     <a-modal
       v-model:open="showCreateDialog"
       title="添加百炼 Key"
@@ -257,7 +266,6 @@ onMounted(() => {
       </a-form>
     </a-modal>
 
-    <!-- 修改倍率对话框 -->
     <a-modal
       v-model:open="showRatioDialog"
       title="调整收益倍率"
@@ -282,7 +290,6 @@ onMounted(() => {
       </a-form>
     </a-modal>
 
-    <!-- 修改备注对话框 -->
     <a-modal
       v-model:open="showRemarkDialog"
       title="编辑备注"
@@ -307,77 +314,242 @@ onMounted(() => {
 
 <style scoped>
 .provider-keys-page {
-  max-width: 1200px;
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  max-width: 1120px;
   margin: 0 auto;
-  min-width: 0;
 }
 
-.page-header {
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.metric-value {
+  font-size: clamp(20px, 2.2vw, 26px);
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.metric-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.list-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.list-toolbar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #262626;
-}
-
-.page-subtitle {
-  margin: 8px 0 0;
-  color: #8c8c8c;
-  font-size: 14px;
-}
-
-.header-actions {
-  display: flex;
   gap: 12px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.key-preview {
-  font-family: 'Courier New', monospace;
+.toolbar-left {
+  display: grid;
+  gap: 4px;
+}
+
+.toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.list-title {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.list-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 13px;
-  color: #595959;
+  font-weight: 600;
 }
 
-.empty-text {
-  padding: 32px 0;
-  color: #8c8c8c;
+.action-button:hover:not(:disabled) {
+  background: #039be5;
+  color: #fff;
+}
+
+.icon-action-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-action-button:hover:not(:disabled) {
+  background: #039be5;
+  color: #fff;
+}
+
+.table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 12px;
+  overflow: auto;
+}
+
+.table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table-wrap table {
+  min-width: 860px;
+}
+
+.table-state {
+  display: grid;
+  gap: 8px;
+  place-content: center;
+  min-height: 220px;
+  padding: 24px;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
   text-align: center;
 }
 
-.hint-text {
+.table-state h4 {
+  margin: 0;
+}
+
+.table-state p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.key-preview {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.time-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-pill.status-active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.status-pill.status-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.status-pill.status-muted {
+  background: #f4f4f6;
+  color: var(--text-secondary);
+}
+
+.ratio-chip {
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(3, 169, 244, 0.1);
+  color: #0284c7;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.text-link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.text-link-button.danger {
+  color: #ef4444;
+}
+
+.hint-text,
+.dialog-hint {
   margin-top: 4px;
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--text-secondary);
 }
 
 .dialog-hint {
   margin: 0 0 16px;
-  color: #8c8c8c;
   font-size: 14px;
 }
 
-.provider-table {
-  max-width: 100%;
-}
-
-.provider-table :deep(.ant-table-wrapper) {
-  max-width: 100%;
-}
-
-.provider-table :deep(.ant-table-container) {
-  max-width: 100%;
-}
-
-.provider-table :deep(.ant-table-content) {
-  max-width: 100%;
-  overflow-x: auto;
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

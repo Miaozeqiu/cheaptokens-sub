@@ -309,33 +309,35 @@ async function handleRegister() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f0f5ff 0%, #e6f7ff 100%);
+  background: var(--bg-color);
   padding: 24px;
 }
 
 .login-card {
   width: min(100%, 420px);
-  padding: 40px 32px;
+  padding: 36px 32px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-color);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .login-header h1 {
   margin: 0 0 8px;
   font-size: 22px;
-  font-weight: 600;
-  color: #1677ff;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .login-header p {
   margin: 0;
-  color: #8c8c8c;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -344,21 +346,25 @@ async function handleRegister() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 24px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f4f4f6;
 }
 
 .mode-switch__item {
-  min-height: 40px;
-  border: 1px solid #d9d9d9;
+  min-height: 38px;
+  border: 0;
   border-radius: 10px;
-  background: #fff;
-  color: #595959;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .mode-switch__item.active {
-  border-color: #1677ff;
-  background: rgba(22, 119, 255, 0.08);
-  color: #1677ff;
+  background: #fff;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .captcha-row,
@@ -372,7 +378,7 @@ async function handleRegister() {
 .captcha-preview {
   min-height: 40px;
   padding: 0;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   background: #fafafa;
   overflow: hidden;
@@ -396,7 +402,7 @@ async function handleRegister() {
 
 .guard-text {
   margin: 8px 0 0;
-  color: #8c8c8c;
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -404,9 +410,9 @@ async function handleRegister() {
 .error-text {
   margin-bottom: 16px;
   padding: 8px 12px;
-  border-radius: 6px;
-  background: rgba(255, 77, 79, 0.08);
-  color: #ff4d4f;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
   font-size: 13px;
   line-height: 1.5;
 }
