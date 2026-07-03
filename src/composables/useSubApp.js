@@ -263,7 +263,7 @@ async function sendCode() {
       body: JSON.stringify({ email, ...guardPayload }),
     })
     const data = await response.json()
-    if (shouldRefreshAuthGuard(response, data) || response.ok) {
+    if (shouldRefreshAuthGuard(response, data)) {
       await refreshAuthGuard()
     }
     if (!response.ok) {

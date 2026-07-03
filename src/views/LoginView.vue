@@ -1,14 +1,16 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { LockOutlined, MailOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons-vue'
 import { useSubApp } from '../composables/useSubApp'
 
+const route = useRoute()
 const router = useRouter()
 const app = useSubApp()
 const mode = ref('login')
 const errorMessage = ref('')
+const inviteCodeFromQuery = computed(() => String(route.query.invite || route.query.invite_code || '').trim())
 
 const sendCodeDisabled = computed(() => (
   app.sendingCode.value
@@ -34,6 +36,14 @@ async function ensureRegisterGuard() {
   }
 }
 
+function applyInviteCodeFromQuery() {
+  if (!inviteCodeFromQuery.value) {
+    return
+  }
+  app.registerForm.value.invite_code = inviteCodeFromQuery.value
+  mode.value = 'register'
+}
+
 watch(mode, (nextMode) => {
   errorMessage.value = ''
   if (nextMode === 'register') {
@@ -41,7 +51,22 @@ watch(mode, (nextMode) => {
   }
 })
 
+watch(
+  () => inviteCodeFromQuery.value,
+  (nextInvite) => {
+    if (!nextInvite) {
+      return
+    }
+    app.registerForm.value.invite_code = nextInvite
+    if (mode.value !== 'register') {
+      mode.value = 'register'
+    }
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
+  applyInviteCodeFromQuery()
   if (mode.value === 'register') {
     ensureRegisterGuard()
   }
