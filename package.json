@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "lottie-web": "^5.13.0",
+    "motion-v": "^2.3.0",
     "vue": "^3.5.18",
     "vue-router": "^4.6.4"
   },
