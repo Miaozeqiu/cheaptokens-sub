@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import DashboardLayout from '../layouts/DashboardLayout.vue'
 import OverviewView from '../views/OverviewView.vue'
 import ProviderKeysView from '../views/ProviderKeysView.vue'
+import TutorialView from '../views/TutorialView.vue'
 import WalletBalanceView from '../views/WalletBalanceView.vue'
 import MyView from '../views/MyView.vue'
 
@@ -52,6 +53,11 @@ const router = createRouter({
           path: 'provider-keys',
           name: 'sub-provider-keys',
           component: ProviderKeysView,
+        },
+        {
+          path: 'tutorial',
+          name: 'sub-tutorial',
+          component: TutorialView,
         },
         {
           path: 'me',

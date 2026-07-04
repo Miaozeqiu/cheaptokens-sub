@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/noto-sans-sc": "^5.2.9",
+    "@fontsource/noto-serif-sc": "^5.2.8",
     "lottie-web": "^5.13.0",
     "motion-v": "^2.3.0",
     "vue": "^3.5.18",

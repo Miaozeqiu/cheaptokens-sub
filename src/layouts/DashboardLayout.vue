@@ -15,6 +15,7 @@ const indicatorStyle = ref({
 const navigationItems = [
   { key: 'wallet', label: '提现', path: '/app/wallet' },
   { key: 'provider-keys', label: 'KEY', path: '/app/provider-keys' },
+  { key: 'tutorial', label: '教程', path: '/app/tutorial' },
   { key: 'me', label: '我的', path: '/app/me' },
 ]
 
