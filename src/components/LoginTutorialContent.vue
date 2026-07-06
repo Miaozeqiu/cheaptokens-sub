@@ -1,10 +1,7 @@
 <script setup>
-import lottie from 'lottie-web'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 
-const authAnimationRef = ref(null)
 const activeCarouselIndex = ref(0)
-let authAnimationInstance = null
 
 const carouselImages = [
   {
@@ -17,27 +14,6 @@ const carouselImages = [
   },
 ]
 
-function initAuthAnimation() {
-  if (!authAnimationRef.value || authAnimationInstance) {
-    return
-  }
-  authAnimationInstance = lottie.loadAnimation({
-    container: authAnimationRef.value,
-    renderer: 'svg',
-    loop: true,
-    autoplay: true,
-    path: '/blue-working-cat-animation.json',
-    rendererSettings: {
-      preserveAspectRatio: 'xMidYMid meet',
-    },
-  })
-}
-
-function destroyAuthAnimation() {
-  authAnimationInstance?.destroy()
-  authAnimationInstance = null
-}
-
 function selectCarouselItem(index) {
   if (index < 0 || index >= carouselImages.length) {
     return
@@ -45,22 +21,10 @@ function selectCarouselItem(index) {
   activeCarouselIndex.value = index
 }
 
-onMounted(() => {
-  initAuthAnimation()
-})
-
-onBeforeUnmount(() => {
-  destroyAuthAnimation()
-})
 </script>
 
 <template>
   <div class="login-tutorial">
-    <div class="login-animation" aria-hidden="true">
-      <div ref="authAnimationRef" class="login-animation__canvas" />
-      <p class="login-animation__caption">分享你的Tokens给其他人</p>
-    </div>
-
     <div class="login-guide">
       <img
         class="login-guide__image"
@@ -68,7 +32,7 @@ onBeforeUnmount(() => {
         alt="阿里云学生优惠券领取页面截图"
       />
       <div class="login-guide__content">
-        <p class="login-guide__text">1. 领取阿里云学生优惠券</p>
+        <p class="login-guide__text"><span class="login-guide__marker">1. 领取阿里云学生优惠券</span></p>
         <p class="login-guide__desc">
           阿里云赠送了学生300的优惠券，这个优惠券可以当作余额使用。在消耗Tokens时，优惠券额度会实时抵扣。需要注意的是，每个模型有免费额度，而优惠券抵扣的额度，实际上是付费额度。
         </p>
@@ -107,7 +71,7 @@ onBeforeUnmount(() => {
         alt="阿里云百炼平台创建 API KEY 的页面截图"
       />
       <div class="login-guide__content">
-        <p class="login-guide__text">2. 在此处创建一个API_KEY</p>
+        <p class="login-guide__text"><span class="login-guide__marker">2. 在此处创建一个API_KEY</span></p>
         <p class="login-guide__desc">
           进入阿里云百炼平台，通过右上角的齿轮，进入API KEY的设置，创建一个KEY，业务空间选择默认即可。
         </p>
@@ -133,7 +97,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="login-guide-step">
-      <p class="login-guide-step__title">3. 将API_KEY 与 API_HOST填入网站</p>
+      <p class="login-guide-step__title"><span class="login-guide__marker">3. 将API_KEY 与 API_HOST填入网站</span></p>
       <p class="login-guide-step__desc">网站会将你的tokens通过API调用的方式，分享给有需要的人</p>
     </div>
   </div>
@@ -145,36 +109,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-.login-animation {
-  width: min(100%, 520px);
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  pointer-events: none;
-}
-
-.login-animation__canvas {
-  width: 100%;
-  height: clamp(220px, 28vw, 320px);
-  position: relative;
-  z-index: 0;
-}
-
-.login-animation__caption {
-  margin: 0;
-  text-align: center;
-  font-size: 64px;
-  font-weight: 900;
-  color: var(--text-secondary);
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  font-family: var(--font-cjk-serif);
-  position: relative;
-  z-index: 1;
 }
 
 .login-guide {
@@ -226,7 +160,7 @@ onBeforeUnmount(() => {
 .login-guide-step {
   width: min(100%, 1120px);
   display: grid;
-  gap: 10px;
+  gap: 14px;
   margin-top: 18px;
 }
 
@@ -244,9 +178,10 @@ onBeforeUnmount(() => {
 }
 
 .login-guide-step__desc {
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: 18px;
+  line-height: 1.8;
   color: var(--text-secondary);
+  font-family: var(--font-cjk-serif);
 }
 
 .login-guide__image {
@@ -269,6 +204,23 @@ onBeforeUnmount(() => {
   line-height: 1.45;
   color: var(--text-primary);
   font-family: var(--font-cjk-serif);
+}
+
+.login-guide__marker {
+  display: inline;
+  padding: 0 8px;
+  background-image: linear-gradient(
+    100deg,
+    rgba(255, 233, 95, 0) 2%,
+    rgba(255, 233, 95, 0.6) 13%,
+    rgba(255, 233, 95, 0.6) 87%,
+    rgba(255, 233, 95, 0) 98%
+  );
+  background-size: 100% 0.55em;
+  background-position: 0 78%;
+  background-repeat: no-repeat;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 .login-guide__desc {
@@ -354,16 +306,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
-  .login-animation {
-    width: min(100%, 420px);
-    margin-top: 6px;
-    gap: 10px;
-  }
-
-  .login-animation__caption {
-    font-size: 26px;
-  }
-
   .login-guide {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -391,15 +333,17 @@ onBeforeUnmount(() => {
 
   .login-guide-step {
     margin-top: 14px;
-    gap: 8px;
+    gap: 10px;
   }
 
   .login-guide-step__title {
     font-size: 22px;
+    text-align: center;
   }
 
   .login-guide-step__desc {
-    font-size: 15px;
+    font-size: 16px;
+    line-height: 1.75;
     text-align: center;
   }
 

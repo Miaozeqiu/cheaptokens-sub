@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import lottie from 'lottie-web'
 import LoginTutorialContent from '../components/LoginTutorialContent.vue'
 import { showToast } from '../composables/useToast'
 import { useSubApp } from '../composables/useSubApp'
@@ -8,6 +9,8 @@ import { useSubApp } from '../composables/useSubApp'
 const route = useRoute()
 const router = useRouter()
 const app = useSubApp()
+const authAnimationRef = ref(null)
+let authAnimationInstance = null
 const mode = ref('login')
 const modeSwitchRef = ref(null)
 const modeIndicatorStyle = ref({
@@ -31,6 +34,27 @@ const registerSubmitting = computed(() => (
 
 function setStatus(text, type = 'info') {
   showToast(text, type)
+}
+
+function initAuthAnimation() {
+  if (!authAnimationRef.value || authAnimationInstance) {
+    return
+  }
+  authAnimationInstance = lottie.loadAnimation({
+    container: authAnimationRef.value,
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path: '/blue-working-cat-animation.json',
+    rendererSettings: {
+      preserveAspectRatio: 'xMidYMid meet',
+    },
+  })
+}
+
+function destroyAuthAnimation() {
+  authAnimationInstance?.destroy()
+  authAnimationInstance = null
 }
 
 function applyInviteCodeFromQuery() {
@@ -97,6 +121,7 @@ watch(
 
 onMounted(() => {
   applyInviteCodeFromQuery()
+  initAuthAnimation()
   nextTick(() => {
     handleWindowResize()
   })
@@ -104,6 +129,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  destroyAuthAnimation()
   window.removeEventListener('resize', handleWindowResize)
 })
 
@@ -307,6 +333,12 @@ async function handleRegister() {
       </form>
     </section>
 
+    <aside class="auth-shell__animation" aria-hidden="true">
+      <div ref="authAnimationRef" class="auth-shell__animation-canvas" />
+    </aside>
+
+    <p class="auth-shell__caption" aria-hidden="true">分享你的Tokens给其他人</p>
+
     <Transition name="auth-guard-dialog">
       <div v-if="showSendCodeDialog" class="dialog-overlay" @mousedown.self="closeSendCodeDialog">
         <div class="dialog-card auth-guard-dialog">
@@ -367,13 +399,76 @@ async function handleRegister() {
 
 <style scoped>
 .login-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-content: center;
   justify-content: center;
   min-height: 100vh;
   gap: 4px;
   padding: 20px;
+}
+
+.auth-shell__animation {
+  width: min(100%, 520px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.auth-shell__animation-canvas {
+  width: 100%;
+  height: clamp(220px, 28vw, 320px);
+  position: relative;
+  z-index: 0;
+}
+
+.auth-shell__caption {
+  margin: 0 auto;
+  width: min(100%, 420px);
+  text-align: center;
+  font-size: 64px;
+  font-weight: 900;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  font-family: var(--font-cjk-serif);
+}
+
+@media (min-width: 900px) {
+  .login-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding-top: 128px;
+    grid-template-columns: minmax(0, 1fr) min(100%, 460px);
+    align-items: center;
+    gap: 40px;
+  }
+
+  .auth-panel {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .auth-shell__animation {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .auth-shell__caption {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: min(100%, 440px);
+  }
+
+  :deep(.login-tutorial) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
 }
 
 .auth-guard-dialog-enter-active,
@@ -640,6 +735,15 @@ async function handleRegister() {
   .auth-panel {
     padding: 20px;
     border-radius: 22px;
+  }
+
+  .auth-shell__animation {
+    width: min(100%, 420px);
+    gap: 10px;
+  }
+
+  .auth-shell__caption {
+    font-size: 26px;
   }
 
   .captcha-row,

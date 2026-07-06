@@ -410,10 +410,17 @@ async function fetchProviderKeys() {
 async function createProviderKey() {
   providerKeyLoading.value = true
   try {
+    const form = createProviderKeyForm.value
+    const baseUrl = String(form.base_url || '').trim()
+    const normalizedBaseUrl = !baseUrl
+      ? ''
+      : /^https?:\/\//i.test(baseUrl)
+        ? baseUrl
+        : `https://${baseUrl}`
     const response = await authFetch('/api/provider-keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createProviderKeyForm.value),
+      body: JSON.stringify({ ...form, base_url: normalizedBaseUrl }),
     })
     const data = await response.json()
     if (!response.ok) {

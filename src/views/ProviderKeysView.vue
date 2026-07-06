@@ -307,10 +307,10 @@ onMounted(() => {
             <span>API Host</span>
             <input
               v-model.trim="app.createProviderKeyForm.value.base_url"
-              type="url"
-              placeholder="https://***.maas.aliyuncs.com"
+              type="text"
+              placeholder="***.maas.aliyuncs.com"
             />
-            <span class="hint-text">示例：https://ws-mhshv8llftydyjpf.cn-beijing.maas.aliyuncs.com</span>
+            <span class="hint-text">示例：ws-mhshv8llftydyjpf.cn-beijing.maas.aliyuncs.com（无需填写 https://，提交时自动补全）</span>
           </label>
 
           <label>
