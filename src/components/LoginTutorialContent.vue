@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 const activeCarouselIndex = ref(0)
 
@@ -14,6 +14,64 @@ const carouselImages = [
   },
 ]
 
+const steps = [
+  { label: '领取学生优惠券' },
+  { label: '创建 API_KEY' },
+  { label: '填入网站' },
+]
+
+const activeStep = ref(0)
+const navVisible = ref(false)
+const stepEls = ref([])
+
+function setStepRef(el, index) {
+  if (el) {
+    stepEls.value[index] = el
+  }
+}
+
+function updateActiveStep() {
+  const docEl = document.documentElement
+  const scrollBottom = window.scrollY + window.innerHeight
+  if (scrollBottom >= docEl.scrollHeight - 8) {
+    activeStep.value = steps.length - 1
+    return
+  }
+  const threshold = window.innerHeight * 0.4
+  let current = 0
+  stepEls.value.forEach((el, i) => {
+    if (!el) {
+      return
+    }
+    if (el.getBoundingClientRect().top <= threshold) {
+      current = i
+    }
+  })
+  activeStep.value = current
+}
+
+function handleScroll() {
+  navVisible.value = window.scrollY > 280
+  updateActiveStep()
+}
+
+function scrollToStep(index) {
+  const el = stepEls.value[index]
+  if (!el) {
+    return
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
+
 function selectCarouselItem(index) {
   if (index < 0 || index >= carouselImages.length) {
     return
@@ -25,7 +83,23 @@ function selectCarouselItem(index) {
 
 <template>
   <div class="login-tutorial">
-    <div class="login-guide">
+    <nav class="login-tutorial__nav" :class="{ 'is-visible': navVisible }" aria-label="步骤导航">
+      <button
+        v-for="(step, index) in steps"
+        :key="index"
+        type="button"
+        class="login-tutorial__nav-item"
+        :class="{ 'is-active': activeStep === index }"
+        @click="scrollToStep(index)"
+      >
+        <span class="login-tutorial__nav-num">{{ index + 1 }}</span>
+        <span class="login-tutorial__nav-label">{{ step.label }}</span>
+      </button>
+    </nav>
+    <p class="login-tutorial__intro">
+      阿里云赠送了学生300的优惠券，领取后可以按照下面的步骤进行变现
+    </p>
+    <div class="login-guide" :ref="(el) => setStepRef(el, 0)" data-step="0">
       <img
         class="login-guide__image"
         src="/aliyun-student-coupon.png"
@@ -34,7 +108,13 @@ function selectCarouselItem(index) {
       <div class="login-guide__content">
         <p class="login-guide__text"><span class="login-guide__marker">1. 领取阿里云学生优惠券</span></p>
         <p class="login-guide__desc">
-          阿里云赠送了学生300的优惠券，这个优惠券可以当作余额使用。在消耗Tokens时，优惠券额度会实时抵扣。需要注意的是，每个模型有免费额度，而优惠券抵扣的额度，实际上是付费额度。
+          <a
+            class="login-guide__link"
+            href="https://www.cheaptokens.shop/aff"
+            target="_blank"
+            rel="noopener noreferrer"
+          >阿里云活动链接</a>
+          <br>需要注意的是，每个模型有免费额度，而优惠券抵扣的额度，实际上是付费额度。
         </p>
       </div>
     </div>
@@ -64,7 +144,7 @@ function selectCarouselItem(index) {
       <p class="login-guide-carousel__caption">可以通过这里，检查券是否领取完成</p>
     </section>
 
-    <div class="login-guide login-guide--secondary">
+    <div class="login-guide login-guide--secondary" :ref="(el) => setStepRef(el, 1)" data-step="1">
       <img
         class="login-guide__image"
         src="/aliyun-api-key-guide.png"
@@ -73,9 +153,19 @@ function selectCarouselItem(index) {
       <div class="login-guide__content">
         <p class="login-guide__text"><span class="login-guide__marker">2. 在此处创建一个API_KEY</span></p>
         <p class="login-guide__desc">
-          进入阿里云百炼平台，通过右上角的齿轮，进入API KEY的设置，创建一个KEY，业务空间选择默认即可。
+          进入<a
+            class="login-guide__link"
+            href="https://bailian.console.aliyun.com/cn-beijing?tab=model#/model-market"
+            target="_blank"
+            rel="noopener noreferrer"
+          >阿里云百炼平台</a>，通过右上角的齿轮，进入API KEY的设置，创建一个KEY，业务空间选择默认即可。
         </p>
       </div>
+    </div>
+
+    <div class="login-guide-step" :ref="(el) => setStepRef(el, 2)" data-step="2">
+      <p class="login-guide-step__title"><span class="login-guide__marker">3. 将API_KEY 与 API_HOST填入网站</span></p>
+      <p class="login-guide-step__desc">网站会将你的tokens通过API调用的方式，分享给有需要的人</p>
     </div>
 
     <div class="login-guide-pair">
@@ -95,11 +185,6 @@ function selectCarouselItem(index) {
         alt="填写 API Key 与 API Host 的表单截图"
       />
     </div>
-
-    <div class="login-guide-step">
-      <p class="login-guide-step__title"><span class="login-guide__marker">3. 将API_KEY 与 API_HOST填入网站</span></p>
-      <p class="login-guide-step__desc">网站会将你的tokens通过API调用的方式，分享给有需要的人</p>
-    </div>
   </div>
 </template>
 
@@ -109,6 +194,99 @@ function selectCarouselItem(index) {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.login-tutorial__nav {
+  position: fixed;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%) translateX(-12px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+
+.login-tutorial__nav.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+.login-tutorial__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+.login-tutorial__nav-item:hover {
+  background: transparent;
+}
+
+.login-tutorial__nav-item:hover .login-tutorial__nav-num,
+.login-tutorial__nav-item:hover .login-tutorial__nav-label {
+  color: var(--text-primary, #0f172a);
+}
+
+.login-tutorial__nav-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 15px;
+  font-weight: 600;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.login-tutorial__nav-label {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #9ca3af;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.login-tutorial__nav-item.is-active .login-tutorial__nav-num {
+  color: hsl(19, 69.9%, 40.4%);
+  text-shadow: 0 0 8px hsla(19, 69.9%, 40.4%, 0.85), 0 0 18px hsla(19, 69.9%, 40.4%, 0.45);
+}
+
+.login-tutorial__nav-item.is-active .login-tutorial__nav-label {
+  color: hsl(19, 69.9%, 40.4%);
+  font-weight: 600;
+}
+
+.login-tutorial__intro {
+  margin: 0 0 24px;
+  padding: 16px 24px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: hsl(19, 69.9%, 40.4%);
+  background: hsla(19, 69.9%, 40.4%, 0.1);
+  border-radius: 12px;
+  font-family: -apple-system, 'Noto Sans', 'miui', 'SF Pro Text', sans-serif, 'PingFang SC', 'Lantinghei SC', 'Microsoft Yahei', 'Hiragino Sans GB', 'Microsoft Sans Serif', 'WenQuanYi Micro Hei';
 }
 
 .login-guide {
@@ -130,7 +308,7 @@ function selectCarouselItem(index) {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 22px;
-  margin-top: 72px;
+  margin-top: 18px;
 }
 
 .login-guide-pair__image {
@@ -161,7 +339,7 @@ function selectCarouselItem(index) {
   width: min(100%, 1120px);
   display: grid;
   gap: 14px;
-  margin-top: 18px;
+  margin-top: 72px;
 }
 
 .login-guide-step__title,
@@ -178,10 +356,11 @@ function selectCarouselItem(index) {
 }
 
 .login-guide-step__desc {
-  font-size: 18px;
-  line-height: 1.8;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--text-secondary);
-  font-family: var(--font-cjk-serif);
+  font-weight: 400;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
 }
 
 .login-guide__image {
@@ -225,10 +404,18 @@ function selectCarouselItem(index) {
 
 .login-guide__desc {
   margin: 0;
-  font-size: 18px;
-  line-height: 1.8;
+  padding-left: 16px;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--text-secondary);
-  font-family: var(--font-cjk-serif);
+  font-weight: 400;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+.login-guide__link {
+  color: rgb(3, 169, 244);
+  text-decoration: underline;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .login-guide-carousel {
@@ -299,13 +486,30 @@ function selectCarouselItem(index) {
 .login-guide-carousel__caption {
   margin: 0;
   text-align: center;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--text-secondary);
-  font-family: var(--font-cjk-sans);
+  font-weight: 400;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+@media (max-width: 1100px) {
+  .login-tutorial__nav-label {
+    display: none;
+  }
+
+  .login-tutorial__nav {
+    left: 16px;
+    padding: 10px 6px;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 640px) {
+  .login-tutorial__nav {
+    display: none;
+  }
+
   .login-guide {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -319,7 +523,7 @@ function selectCarouselItem(index) {
   .login-guide-pair {
     grid-template-columns: 1fr;
     gap: 12px;
-    margin-top: 16px;
+    margin-top: 14px;
   }
 
   .login-guide-pair__image {
@@ -332,7 +536,7 @@ function selectCarouselItem(index) {
   }
 
   .login-guide-step {
-    margin-top: 14px;
+    margin-top: 16px;
     gap: 10px;
   }
 
@@ -360,6 +564,7 @@ function selectCarouselItem(index) {
     font-size: 16px;
     line-height: 1.75;
     text-align: center;
+    padding-left: 0;
   }
 
   .login-guide-carousel {
@@ -387,7 +592,7 @@ function selectCarouselItem(index) {
 
   .login-guide-carousel__caption {
     font-size: 16px;
-    line-height: 1.45;
+    line-height: 1.6;
   }
 }
 </style>
