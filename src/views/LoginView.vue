@@ -283,11 +283,12 @@ async function handleRegister() {
         </label>
 
         <label class="field">
-          <span>主账户邀请码</span>
+          <span>主账户邀请码<span class="field-required">必填</span></span>
           <input
             v-model.trim="app.registerForm.value.invite_code"
             type="text"
             maxlength="64"
+            placeholder="请向主账户获取邀请码，无邀请码无法注册"
           />
         </label>
 
@@ -431,7 +432,7 @@ async function handleRegister() {
   text-align: center;
   font-size: 64px;
   font-weight: 900;
-  color: var(--text-secondary);
+  color: #56301e;
   letter-spacing: 0.02em;
   line-height: 1.4;
   font-family: var(--font-cjk-serif);
@@ -601,6 +602,16 @@ async function handleRegister() {
   padding: 10px 14px;
   border: 0;
   box-shadow: none;
+}
+
+.field-required {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--danger, #e5484d);
+  background: rgba(229, 72, 77, 0.1);
+  border-radius: 4px;
 }
 
 .field input:focus {
