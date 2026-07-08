@@ -17,6 +17,13 @@ const withdrawalTotalPages = computed(() =>
   Math.max(1, Math.ceil(Number(app.withdrawalTotal.value || 0) / Number(withdrawalPageSize.value || 10))),
 )
 
+const hasPaymentMethod = computed(() => {
+  const p = app.payoutSettings.value || {}
+  const hasWechat = Boolean(p.wechat_account?.trim()) || Boolean(p.wechat_qr_code_proxy_path?.trim())
+  const hasAlipay = Boolean(p.alipay_account?.trim()) || Boolean(p.alipay_qr_code_proxy_path?.trim())
+  return hasWechat || hasAlipay
+})
+
 function formatTableTime(value) {
   const text = app.formatDateTime(value)
   if (!text || text === '--') return '--'
@@ -95,6 +102,7 @@ onMounted(async () => {
   await Promise.all([
     app.fetchWallet(),
     app.fetchWithdrawalRequests(withdrawalPage.value, withdrawalPageSize.value),
+    app.fetchPayoutSettings(),
   ])
 })
 </script>
@@ -107,9 +115,21 @@ onMounted(async () => {
         {{ app.walletLoading.value ? '加载中...' : app.formatMoney(app.wallet.value?.balance) }}
       </span>
     </p>
-    <button type="button" class="wallet-action" @click="openCreateDialog">
+    <button
+      v-if="hasPaymentMethod"
+      type="button"
+      class="wallet-action"
+      @click="openCreateDialog"
+    >
       提现
     </button>
+    <RouterLink
+      v-else
+      to="/app/me/payout-settings"
+      class="payout-hint"
+    >
+      填写收款方式 ›
+    </RouterLink>
     <button type="button" class="wallet-history" @click="openWithdrawalHistoryDialog">
       记录
     </button>
@@ -302,6 +322,25 @@ onMounted(async () => {
 
 .wallet-history:hover {
   color: var(--text-primary);
+}
+
+.payout-hint {
+  justify-self: center;
+  margin: 0;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: hsl(19, 69.9%, 40.4%);
+  background: hsla(19, 69.9%, 40.4%, 0.1);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.payout-hint:hover {
+  background: hsla(19, 69.9%, 40.4%, 0.16);
 }
 
 .wallet-message {
