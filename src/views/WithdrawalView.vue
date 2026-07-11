@@ -55,6 +55,7 @@ function closeCreateDialog() {
 
 async function handleSubmit() {
   const amount = Number(createForm.amount)
+  const remark = String(createForm.remark || '').trim()
   if (!amount || amount <= 0) {
     setMessage('请输入有效的提现金额', 'error')
     return
@@ -63,8 +64,12 @@ async function handleSubmit() {
     setMessage('提现金额不能超过当前余额', 'error')
     return
   }
+  if (!remark) {
+    setMessage('请填写提现备注', 'error')
+    return
+  }
   setMessage('', 'info')
-  const result = await app.createWithdrawalRequest(amount, createForm.remark)
+  const result = await app.createWithdrawalRequest(amount, remark)
   if (result.ok) {
     showCreateDialog.value = false
     setMessage(result.message || '提现申请已提交', 'success')
@@ -165,8 +170,8 @@ onMounted(async () => {
             <input v-model.number="createForm.amount" type="number" min="0.01" step="0.01" placeholder="请输入提现金额" required />
           </label>
           <label>
-            <span>备注（可选）</span>
-            <input v-model.trim="createForm.remark" type="text" maxlength="200" placeholder="填写备注信息" />
+            <span>备注</span>
+            <input v-model.trim="createForm.remark" type="text" maxlength="200" placeholder="请填写提现备注" required />
           </label>
           <p class="hint-text">当前余额：{{ app.formatMoney(app.wallet.value?.balance) }}</p>
 

@@ -555,6 +555,10 @@ async function fetchWithdrawalRequests(page = 1, pageSize = 20) {
 }
 
 async function createWithdrawalRequest(amount, remark) {
+  const normalizedRemark = String(remark || '').trim()
+  if (!normalizedRemark) {
+    return { ok: false, message: '请填写提现备注' }
+  }
   withdrawalLoading.value = true
   try {
     const response = await authFetch('/api/wallet/withdraw-requests', {
@@ -562,7 +566,7 @@ async function createWithdrawalRequest(amount, remark) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         amount: Number(amount),
-        remark: String(remark || '').trim(),
+        remark: normalizedRemark,
       }),
     })
     const data = await response.json()
