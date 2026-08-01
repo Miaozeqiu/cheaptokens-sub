@@ -77,6 +77,13 @@ const payoutSettings = ref({
   wechat_qr_code_proxy_path: '',
   alipay_qr_code_proxy_path: '',
 })
+const parentContactLoading = ref(false)
+const parentContact = ref({
+  wechat_account: '',
+  wechat_image_url: '',
+  wechat_image_proxy_path: '',
+  updated_at: '',
+})
 
 const isAuthenticated = computed(() => Boolean(authToken.value && currentUser.value))
 
@@ -607,6 +614,28 @@ async function fetchPayoutSettings() {
   }
 }
 
+async function fetchParentContact() {
+  parentContactLoading.value = true
+  try {
+    const response = await authFetch('/api/parent-contact')
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '读取主账户联系方式失败' }
+    }
+    parentContact.value = {
+      wechat_account: String(data.wechat_account || ''),
+      wechat_image_url: String(data.wechat_image_url || ''),
+      wechat_image_proxy_path: String(data.wechat_image_proxy_path || ''),
+      updated_at: data.updated_at || '',
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, message: '无法连接主账户联系方式接口' }
+  } finally {
+    parentContactLoading.value = false
+  }
+}
+
 async function updatePayoutSettings(payload) {
   payoutSettingsLoading.value = true
   try {
@@ -724,6 +753,8 @@ export function useSubApp() {
     payoutSettings,
     payoutSettingsLoading,
     payoutUploadLoading,
+    parentContact,
+    parentContactLoading,
     apiUrl,
     formatDateTime,
     formatMoney,
@@ -731,5 +762,6 @@ export function useSubApp() {
     fetchPayoutSettings,
     updatePayoutSettings,
     uploadPayoutQRCode,
+    fetchParentContact,
   }
 }

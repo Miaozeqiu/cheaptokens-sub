@@ -148,6 +148,15 @@ const subAccountID = computed(() => Number(app.currentUser.value?.id || 0))
 
 const hasWechatQR = computed(() => hasQRCode(payoutForm.wechat_qr_code_proxy_path))
 const hasAlipayQR = computed(() => hasQRCode(payoutForm.alipay_qr_code_proxy_path))
+const hasParentContact = computed(() =>
+  Boolean(
+    String(app.parentContact.value?.wechat_account || '').trim() ||
+    String(app.parentContact.value?.wechat_image_proxy_path || '').trim(),
+  ),
+)
+const parentContactImageUrl = computed(() =>
+  buildQRCodePreviewUrl(app.parentContact.value?.wechat_image_proxy_path),
+)
 
 function setMessage(text, type = 'info') {
   showToast(text, type)
@@ -296,6 +305,7 @@ onMounted(async () => {
     app.fetchProviderKeys(),
     app.fetchWithdrawalRequests(1, withdrawalPageSize.value),
     app.fetchPayoutSettings(),
+    app.fetchParentContact(),
   ])
   syncPayoutForm()
 })
@@ -333,6 +343,40 @@ onMounted(async () => {
 
     <article v-else-if="activeTab === 'overview'" class="page-card list-card overview-record-card">
       <div class="page-card__body">
+        <section class="parent-contact-block">
+          <header class="list-toolbar">
+            <div class="toolbar-left">
+              <h3 class="list-title">主账户联系方式</h3>
+            </div>
+          </header>
+          <div v-if="app.parentContactLoading.value" class="empty-state parent-contact-empty">
+            <h4>正在加载…</h4>
+          </div>
+          <div v-else-if="!hasParentContact" class="empty-state parent-contact-empty">
+            <h4>主账户暂未设置联系方式</h4>
+            <p>主账户可在子账户管理页填写微信号与微信图片。</p>
+          </div>
+          <div v-else class="parent-contact-content">
+            <p v-if="app.parentContact.value.wechat_account" class="parent-contact-account">
+              <span class="parent-contact-label">微信号</span>
+              <strong>{{ app.parentContact.value.wechat_account }}</strong>
+            </p>
+            <div class="parent-contact-image-wrap">
+              <span class="parent-contact-label">微信图片</span>
+              <a
+                v-if="parentContactImageUrl"
+                class="parent-contact-image-link"
+                :href="parentContactImageUrl"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img class="parent-contact-image" :src="parentContactImageUrl" alt="主账户微信图片" />
+              </a>
+              <div v-else class="parent-contact-image-empty">未上传</div>
+            </div>
+          </div>
+        </section>
+
         <header class="list-toolbar">
           <div class="toolbar-left">
             <h3 class="list-title">收益分成</h3>
@@ -732,6 +776,62 @@ onMounted(async () => {
   background: transparent;
   box-shadow: none;
   padding: 0;
+}
+
+.parent-contact-block {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.parent-contact-empty {
+  min-height: 0;
+  padding: 12px 0 4px;
+}
+
+.parent-contact-content {
+  display: grid;
+  gap: 14px;
+}
+
+.parent-contact-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.parent-contact-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.parent-contact-image-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.parent-contact-image-link {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.parent-contact-image,
+.parent-contact-image-empty {
+  width: 148px;
+  height: 148px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #f4f4f6;
+}
+
+.parent-contact-image-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .overview-record-card .page-card__body {
