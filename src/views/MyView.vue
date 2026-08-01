@@ -34,13 +34,30 @@ const subEntries = [
   },
 ]
 
+const hasParentContact = computed(() =>
+  Boolean(
+    String(app.parentContact.value?.wechat_account || '').trim() ||
+    String(app.parentContact.value?.wechat_image_proxy_path || '').trim(),
+  ),
+)
+
+const parentContactImageUrl = computed(() => {
+  const path = String(app.parentContact.value?.wechat_image_proxy_path || '').trim()
+  if (!path) return ''
+  const token = String(app.authToken.value || '').trim()
+  const baseUrl = app.apiUrl(path)
+  if (!token) return baseUrl
+  const separator = baseUrl.includes('?') ? '&' : '?'
+  return `${baseUrl}${separator}token=${encodeURIComponent(token)}`
+})
+
 async function handleLogout() {
   await app.logout()
   router.replace('/login')
 }
 
 onMounted(() => {
-  app.fetchWallet()
+  Promise.all([app.fetchWallet(), app.fetchParentContact()])
 })
 </script>
 
@@ -54,6 +71,37 @@ onMounted(() => {
             <span class="my-value">{{ item.value }}</span>
           </div>
         </div>
+
+        <section class="parent-contact-card" aria-label="主账户联系方式">
+          <header class="parent-contact-card__head">
+            <h3 class="parent-contact-card__title">主账户联系方式</h3>
+          </header>
+          <div v-if="app.parentContactLoading.value" class="parent-contact-card__empty">
+            正在加载…
+          </div>
+          <div v-else-if="!hasParentContact" class="parent-contact-card__empty">
+            主账户暂未设置联系方式
+          </div>
+          <div v-else class="parent-contact-card__body">
+            <div v-if="app.parentContact.value.wechat_account" class="parent-contact-row">
+              <span class="my-label">微信号</span>
+              <strong class="my-value">{{ app.parentContact.value.wechat_account }}</strong>
+            </div>
+            <div class="parent-contact-image-block">
+              <span class="my-label">微信图片</span>
+              <a
+                v-if="parentContactImageUrl"
+                class="parent-contact-image-link"
+                :href="parentContactImageUrl"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img class="parent-contact-image" :src="parentContactImageUrl" alt="主账户微信图片" />
+              </a>
+              <div v-else class="parent-contact-image-empty">未上传</div>
+            </div>
+          </div>
+        </section>
 
         <div class="my-entry-list" aria-label="我的子页面入口">
           <RouterLink
@@ -117,6 +165,68 @@ onMounted(() => {
   font-size: 14px;
   text-align: right;
   word-break: break-all;
+}
+
+.parent-contact-card {
+  margin-top: 22px;
+  padding: 16px 0 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+.parent-contact-card__head {
+  margin-bottom: 10px;
+}
+
+.parent-contact-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.parent-contact-card__empty {
+  padding: 8px 0 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.parent-contact-card__body {
+  display: grid;
+  gap: 14px;
+}
+
+.parent-contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+}
+
+.parent-contact-image-block {
+  display: grid;
+  gap: 8px;
+}
+
+.parent-contact-image-link {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.parent-contact-image,
+.parent-contact-image-empty {
+  width: 148px;
+  height: 148px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #f4f4f6;
+}
+
+.parent-contact-image-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .my-entry-list {
