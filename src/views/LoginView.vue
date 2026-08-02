@@ -2,7 +2,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import lottie from 'lottie-web'
-import LoginTutorialContent from '../components/LoginTutorialContent.vue'
 import { showToast } from '../composables/useToast'
 import { useSubApp } from '../composables/useSubApp'
 
@@ -338,8 +337,6 @@ async function handleRegister() {
       <div ref="authAnimationRef" class="auth-shell__animation-canvas" />
     </aside>
 
-    <p class="auth-shell__caption" aria-hidden="true">分享你的Tokens给其他人</p>
-
     <Transition name="auth-guard-dialog">
       <div v-if="showSendCodeDialog" class="dialog-overlay" @mousedown.self="closeSendCodeDialog">
         <div class="dialog-card auth-guard-dialog">
@@ -394,7 +391,6 @@ async function handleRegister() {
       </div>
     </Transition>
 
-    <LoginTutorialContent />
   </div>
 </template>
 
@@ -426,18 +422,6 @@ async function handleRegister() {
   z-index: 0;
 }
 
-.auth-shell__caption {
-  margin: 0 auto;
-  width: min(100%, 420px);
-  text-align: center;
-  font-size: 64px;
-  font-weight: 900;
-  color: #56301e;
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  font-family: var(--font-cjk-serif);
-}
-
 @media (min-width: 900px) {
   .login-page {
     max-width: 1000px;
@@ -460,16 +444,6 @@ async function handleRegister() {
     max-width: 440px;
   }
 
-  .auth-shell__caption {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: min(100%, 440px);
-  }
-
-  :deep(.login-tutorial) {
-    grid-column: 1 / -1;
-    grid-row: 3;
-  }
 }
 
 .auth-guard-dialog-enter-active,
@@ -751,10 +725,6 @@ async function handleRegister() {
   .auth-shell__animation {
     width: min(100%, 420px);
     gap: 10px;
-  }
-
-  .auth-shell__caption {
-    font-size: 26px;
   }
 
   .captcha-row,

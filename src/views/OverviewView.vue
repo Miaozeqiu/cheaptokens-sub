@@ -362,9 +362,9 @@ onMounted(async () => {
                 <tr v-for="record in app.revenueShares.value" :key="record.id">
                   <td class="time-text">{{ formatTableTime(record.hour_bucket) }}</td>
                   <td>{{ Number(record.request_count || 0).toLocaleString('zh-CN') }}</td>
-                  <td>{{ app.formatMoney(record.original_cost) }}</td>
-                  <td><span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span></td>
-                  <td><strong class="sub-share">{{ app.formatMoney(record.sub_share) }}</strong></td>
+                  <td>{{ app.formatMoney(record.original_cost, 4) }}</td>
+                  <td><span class="parent-share">{{ app.formatMoney(record.parent_share, 4) }}</span></td>
+                  <td><strong class="sub-share">{{ app.formatMoney(record.sub_share, 4) }}</strong></td>
                 </tr>
               </tbody>
             </table>

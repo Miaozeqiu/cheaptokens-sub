@@ -244,7 +244,7 @@ onBeforeUnmount(() => {
   width: 100%;
   flex: 1;
   min-width: 0;
-  padding: 92px 18px 18px;
+  padding: 92px 40px 40px;
 }
 
 .sub-page-enter-active,
@@ -281,7 +281,7 @@ onBeforeUnmount(() => {
     position: relative;
     z-index: 21;
     /* 顶栏已回文档流，不再需要 fixed 预留的 92px */
-    padding: 18px;
+    padding: 36px;
   }
 }
 
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
   }
 
   .app-main {
-    padding: 12px;
+    padding: 24px;
   }
 }
 </style>

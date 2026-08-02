@@ -532,8 +532,9 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString('zh-CN')
 }
 
-function formatMoney(value) {
-  return `¥${Number(value || 0).toFixed(2)}`
+function formatMoney(value, digits = 2) {
+  const places = Number.isFinite(Number(digits)) ? Math.max(0, Math.min(8, Number(digits))) : 2
+  return `¥${Number(value || 0).toFixed(places)}`
 }
 
 function formatRatio(value) {
