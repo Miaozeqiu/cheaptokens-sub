@@ -7,6 +7,7 @@ import ProviderKeysView from '../views/ProviderKeysView.vue'
 import TutorialView from '../views/TutorialView.vue'
 import WalletBalanceView from '../views/WalletBalanceView.vue'
 import MyView from '../views/MyView.vue'
+import ParentContactView from '../views/ParentContactView.vue'
 
 const { hasSession } = useSubApp()
 
@@ -77,6 +78,11 @@ const router = createRouter({
           path: 'me/payout-settings',
           name: 'sub-me-payout-settings',
           component: OverviewView,
+        },
+        {
+          path: 'me/contact',
+          name: 'sub-me-contact',
+          component: ParentContactView,
         },
       ],
     },

@@ -272,10 +272,16 @@ onBeforeUnmount(() => {
     justify-content: center;
   }
 
-  .top-navbar,
+  .top-navbar {
+    position: relative;
+    z-index: 21;
+  }
+
   .app-main {
     position: relative;
     z-index: 21;
+    /* 顶栏已回文档流，不再需要 fixed 预留的 92px */
+    padding: 18px;
   }
 }
 

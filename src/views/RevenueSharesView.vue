@@ -54,6 +54,7 @@ onMounted(() => {
               <tr>
                 <th>时段</th>
                 <th>请求数</th>
+                <th>上游消耗</th>
                 <th>主账户分成</th>
                 <th>自己所得</th>
               </tr>
@@ -62,6 +63,7 @@ onMounted(() => {
               <tr v-for="record in app.revenueShares.value" :key="record.id">
                 <td class="time-text">{{ formatTableTime(record.hour_bucket) }}</td>
                 <td>{{ Number(record.request_count || 0).toLocaleString('zh-CN') }}</td>
+                <td>{{ app.formatMoney(record.original_cost) }}</td>
                 <td><span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span></td>
                 <td><strong class="sub-share">{{ app.formatMoney(record.sub_share) }}</strong></td>
               </tr>

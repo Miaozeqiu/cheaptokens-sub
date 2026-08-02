@@ -148,15 +148,6 @@ const subAccountID = computed(() => Number(app.currentUser.value?.id || 0))
 
 const hasWechatQR = computed(() => hasQRCode(payoutForm.wechat_qr_code_proxy_path))
 const hasAlipayQR = computed(() => hasQRCode(payoutForm.alipay_qr_code_proxy_path))
-const hasParentContact = computed(() =>
-  Boolean(
-    String(app.parentContact.value?.wechat_account || '').trim() ||
-    String(app.parentContact.value?.wechat_image_proxy_path || '').trim(),
-  ),
-)
-const parentContactImageUrl = computed(() =>
-  buildQRCodePreviewUrl(app.parentContact.value?.wechat_image_proxy_path),
-)
 
 function setMessage(text, type = 'info') {
   showToast(text, type)
@@ -305,7 +296,6 @@ onMounted(async () => {
     app.fetchProviderKeys(),
     app.fetchWithdrawalRequests(1, withdrawalPageSize.value),
     app.fetchPayoutSettings(),
-    app.fetchParentContact(),
   ])
   syncPayoutForm()
 })
@@ -343,40 +333,6 @@ onMounted(async () => {
 
     <article v-else-if="activeTab === 'overview'" class="page-card list-card overview-record-card">
       <div class="page-card__body">
-        <section class="parent-contact-block">
-          <header class="list-toolbar">
-            <div class="toolbar-left">
-              <h3 class="list-title">主账户联系方式</h3>
-            </div>
-          </header>
-          <div v-if="app.parentContactLoading.value" class="empty-state parent-contact-empty">
-            <h4>正在加载…</h4>
-          </div>
-          <div v-else-if="!hasParentContact" class="empty-state parent-contact-empty">
-            <h4>主账户暂未设置联系方式</h4>
-            <p>主账户可在子账户管理页填写微信号与微信图片。</p>
-          </div>
-          <div v-else class="parent-contact-content">
-            <p v-if="app.parentContact.value.wechat_account" class="parent-contact-account">
-              <span class="parent-contact-label">微信号</span>
-              <strong>{{ app.parentContact.value.wechat_account }}</strong>
-            </p>
-            <div class="parent-contact-image-wrap">
-              <span class="parent-contact-label">微信图片</span>
-              <a
-                v-if="parentContactImageUrl"
-                class="parent-contact-image-link"
-                :href="parentContactImageUrl"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <img class="parent-contact-image" :src="parentContactImageUrl" alt="主账户微信图片" />
-              </a>
-              <div v-else class="parent-contact-image-empty">未上传</div>
-            </div>
-          </div>
-        </section>
-
         <header class="list-toolbar">
           <div class="toolbar-left">
             <h3 class="list-title">收益分成</h3>
@@ -397,6 +353,7 @@ onMounted(async () => {
                 <tr>
                   <th>时段</th>
                   <th>请求数</th>
+                  <th>上游消耗</th>
                   <th>主账户分成</th>
                   <th>自己所得</th>
                 </tr>
@@ -405,6 +362,7 @@ onMounted(async () => {
                 <tr v-for="record in app.revenueShares.value" :key="record.id">
                   <td class="time-text">{{ formatTableTime(record.hour_bucket) }}</td>
                   <td>{{ Number(record.request_count || 0).toLocaleString('zh-CN') }}</td>
+                  <td>{{ app.formatMoney(record.original_cost) }}</td>
                   <td><span class="parent-share">{{ app.formatMoney(record.parent_share) }}</span></td>
                   <td><strong class="sub-share">{{ app.formatMoney(record.sub_share) }}</strong></td>
                 </tr>
@@ -432,12 +390,22 @@ onMounted(async () => {
         <div class="payout-col">
           <label class="payout-field">
             <span>微信号</span>
-            <input
-              v-model.trim="payoutForm.wechat_account"
-              type="text"
-              maxlength="120"
-              placeholder="请输入微信号"
-            />
+            <div class="payout-input-row">
+              <input
+                v-model.trim="payoutForm.wechat_account"
+                type="text"
+                maxlength="120"
+                placeholder="请输入微信号"
+              />
+              <span class="payout-edit-icon" aria-hidden="true">
+                <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M872.533333 307.2c0-21.333333-8.533333-42.666667-23.466666-57.6l-91.733334-91.733333c-32-32-85.333333-32-115.2 0L177.066667 622.933333c-4.266667 4.266667-6.4 8.533333-8.533334 14.933334l-49.066666 213.333333c-2.133333 10.666667 0 21.333333 8.533333 29.866667 6.4 6.4 14.933333 8.533333 23.466667 8.533333h6.4l213.333333-49.066667c6.4-2.133333 10.666667-4.266667 14.933333-8.533333l465.066667-465.066667c12.8-17.066667 21.333333-38.4 21.333333-59.733333z m-68.266666 12.8L345.6 778.666667 192 814.933333l36.266667-153.6L686.933333 202.666667c6.4-6.4 19.2-6.4 25.6 0l91.733334 91.733333c4.266667 4.266667 4.266667 8.533333 4.266666 12.8 0 4.266667 0 8.533333-4.266666 12.8zM874.666667 825.6H599.466667c-17.066667 0-32 14.933333-32 32s14.933333 32 32 32H874.666667c17.066667 0 32-14.933333 32-32s-14.933333-32-32-32z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+            </div>
           </label>
 
           <div class="payout-field">
@@ -487,12 +455,22 @@ onMounted(async () => {
         <div class="payout-col">
           <label class="payout-field">
             <span>支付宝账号</span>
-            <input
-              v-model.trim="payoutForm.alipay_account"
-              type="text"
-              maxlength="120"
-              placeholder="请输入支付宝账号"
-            />
+            <div class="payout-input-row">
+              <input
+                v-model.trim="payoutForm.alipay_account"
+                type="text"
+                maxlength="120"
+                placeholder="请输入支付宝账号"
+              />
+              <span class="payout-edit-icon" aria-hidden="true">
+                <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M872.533333 307.2c0-21.333333-8.533333-42.666667-23.466666-57.6l-91.733334-91.733333c-32-32-85.333333-32-115.2 0L177.066667 622.933333c-4.266667 4.266667-6.4 8.533333-8.533334 14.933334l-49.066666 213.333333c-2.133333 10.666667 0 21.333333 8.533333 29.866667 6.4 6.4 14.933333 8.533333 23.466667 8.533333h6.4l213.333333-49.066667c6.4-2.133333 10.666667-4.266667 14.933333-8.533333l465.066667-465.066667c12.8-17.066667 21.333333-38.4 21.333333-59.733333z m-68.266666 12.8L345.6 778.666667 192 814.933333l36.266667-153.6L686.933333 202.666667c6.4-6.4 19.2-6.4 25.6 0l91.733334 91.733333c4.266667 4.266667 4.266667 8.533333 4.266666 12.8 0 4.266667 0 8.533333-4.266666 12.8zM874.666667 825.6H599.466667c-17.066667 0-32 14.933333-32 32s14.933333 32 32 32H874.666667c17.066667 0 32-14.933333 32-32s-14.933333-32-32-32z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+            </div>
           </label>
 
           <div class="payout-field">
@@ -778,62 +756,6 @@ onMounted(async () => {
   padding: 0;
 }
 
-.parent-contact-block {
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: var(--shadow-card);
-}
-
-.parent-contact-empty {
-  min-height: 0;
-  padding: 12px 0 4px;
-}
-
-.parent-contact-content {
-  display: grid;
-  gap: 14px;
-}
-
-.parent-contact-account {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-}
-
-.parent-contact-label {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.parent-contact-image-wrap {
-  display: grid;
-  gap: 8px;
-}
-
-.parent-contact-image-link {
-  display: inline-flex;
-  width: fit-content;
-}
-
-.parent-contact-image,
-.parent-contact-image-empty {
-  width: 148px;
-  height: 148px;
-  border-radius: 12px;
-  object-fit: cover;
-  background: #f4f4f6;
-}
-
-.parent-contact-image-empty {
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
 .overview-record-card .page-card__body {
   display: flex;
   flex: 1;
@@ -907,16 +829,53 @@ onMounted(async () => {
 
 .payout-field input {
   min-height: 40px;
-  padding: 8px 12px;
+  padding: 8px 0;
   border: 0;
-  border-radius: 6px;
-  background: #fff;
+  border-radius: 0;
+  background: transparent;
   outline: none;
   box-shadow: none;
 }
 
 .payout-field input:focus {
   border-color: transparent;
+}
+
+.payout-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border-color);
+  cursor: text;
+}
+
+.payout-input-row:hover,
+.payout-input-row:focus-within {
+  border-bottom-color: var(--text-secondary);
+}
+
+.payout-input-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: text;
+}
+
+.payout-edit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+  background: transparent;
+  pointer-events: none;
+}
+
+.payout-edit-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .qr-thumb {
