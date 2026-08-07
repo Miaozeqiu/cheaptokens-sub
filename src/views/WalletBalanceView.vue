@@ -195,7 +195,7 @@ onMounted(async () => {
           </div>
           <div v-else-if="!app.withdrawalRequests.value.length" class="empty-state">
             <h4>暂无提现记录</h4>
-            <p>提交提现申请后，可在此查看审批进度。</p>
+            <p>提交后由主账户审核；通过后余额转入主账户钱包，可在此查看进度。</p>
           </div>
           <div v-else class="table-wrap">
             <table>

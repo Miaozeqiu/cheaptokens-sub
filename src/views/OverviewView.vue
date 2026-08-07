@@ -535,7 +535,7 @@ onMounted(async () => {
         <div class="dialog-header">
           <div>
             <h3>申请提现</h3>
-            <p class="dialog-subtitle">提交后将等待主账户审批，审批通过后余额将扣减。</p>
+            <p class="dialog-subtitle">提交后将等待主账户审核；通过后余额转入主账户钱包。</p>
           </div>
           <button type="button" class="dialog-close-icon" :disabled="app.withdrawalLoading.value" @click="closeCreateDialog">
             <svg viewBox="0 0 1024 1024" aria-hidden="true">
@@ -587,7 +587,7 @@ onMounted(async () => {
           </div>
           <div v-else-if="!app.withdrawalRequests.value.length" class="table-state">
             <h4>暂无提现记录</h4>
-            <p>提交提现申请后，可在此查看审批进度。</p>
+            <p>提交后由主账户审核；通过后余额转入主账户钱包。</p>
           </div>
           <div v-else class="table-wrap">
             <table>

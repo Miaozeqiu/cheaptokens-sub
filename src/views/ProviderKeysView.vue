@@ -34,6 +34,7 @@ function formatProviderKeyStatus(status) {
   const map = {
     active: '可用',
     insufficient_balance: '余额不足',
+    free_quota_exhausted: '免费额度用尽',
     invalid: 'Key 无效',
     disabled: '已停用',
   }
@@ -42,7 +43,7 @@ function formatProviderKeyStatus(status) {
 
 function statusChipClass(status) {
   if (status === 'active') return 'status-active'
-  if (status === 'insufficient_balance' || status === 'invalid') return 'status-warning'
+  if (status === 'insufficient_balance' || status === 'free_quota_exhausted' || status === 'invalid') return 'status-warning'
   return 'status-muted'
 }
 
