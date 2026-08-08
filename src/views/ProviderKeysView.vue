@@ -189,7 +189,7 @@ onMounted(() => {
               百炼官网
             </a>
             <a
-              href="https://www.cheaptokens.shop/aff"
+              href="https://university.aliyun.com"
               target="_blank"
               rel="noreferrer"
               class="header-doc-link"

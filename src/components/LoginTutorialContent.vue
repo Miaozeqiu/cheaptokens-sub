@@ -201,7 +201,7 @@ function selectCarouselItem(index) {
         <p class="login-guide__desc">
           <a
             class="login-guide__link"
-            href="https://www.cheaptokens.shop/aff"
+            href="https://university.aliyun.com"
             target="_blank"
             rel="noopener noreferrer"
           >阿里云活动链接</a>
