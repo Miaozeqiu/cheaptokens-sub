@@ -583,7 +583,11 @@ async function createWithdrawalRequest(amount, remark) {
     }
     await fetchWithdrawalRequests()
     await fetchWallet()
-    return { ok: true, message: data.message || '提现申请已提交' }
+    return {
+      ok: true,
+      message: data.message || '提现申请已提交',
+      require_contact_main_for_withdraw: Boolean(data.require_contact_main_for_withdraw),
+    }
   } catch {
     return { ok: false, message: '提交提现申请失败，请确认后端服务可用' }
   } finally {

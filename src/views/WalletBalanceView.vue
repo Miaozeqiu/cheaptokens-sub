@@ -2,12 +2,14 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { showToast } from '../composables/useToast'
 import { useSubApp } from '../composables/useSubApp'
+import WithdrawContactPrompt from '../components/WithdrawContactPrompt.vue'
 
 const app = useSubApp()
 const withdrawalPage = ref(1)
 const withdrawalPageSize = ref(10)
 const showCreateDialog = ref(false)
 const showWithdrawalHistoryDialog = ref(false)
+const showContactPrompt = ref(false)
 const createForm = reactive({
   amount: 0,
   remark: '',
@@ -91,6 +93,10 @@ async function handleSubmit() {
   const result = await app.createWithdrawalRequest(amount, remark)
   if (result.ok) {
     showCreateDialog.value = false
+    if (result.require_contact_main_for_withdraw) {
+      showContactPrompt.value = true
+      return
+    }
     setMessage(result.message || '提现申请已提交', 'success')
     return
   }
@@ -238,6 +244,8 @@ onMounted(async () => {
         </div>
       </div>
     </Transition>
+
+    <WithdrawContactPrompt :open="showContactPrompt" @close="showContactPrompt = false" />
   </div>
 </template>
 
