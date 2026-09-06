@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import lottie from 'lottie-web'
 import { showToast } from '../composables/useToast'
 import { useSubApp } from '../composables/useSubApp'
@@ -11,6 +11,17 @@ const app = useSubApp()
 const authAnimationRef = ref(null)
 let authAnimationInstance = null
 const mode = ref('login')
+const routeMode = computed(() => String(route.meta.mode || 'login'))
+const isForgotPassword = computed(() => routeMode.value === 'forgot-password')
+const isResetPassword = computed(() => routeMode.value === 'reset-password')
+const showModeSwitch = computed(() => !isForgotPassword.value && !isResetPassword.value)
+const resetToken = computed(() => String(route.query.token || '').trim())
+const forgotSubmitting = computed(() => (
+  app.forgotPasswordLoading.value
+  || app.authGuard.refreshing
+  || app.authGuard.solving
+))
+const resetSubmitting = computed(() => app.resetPasswordLoading.value)
 const modeSwitchRef = ref(null)
 const modeIndicatorStyle = ref({
   width: '0px',
@@ -32,6 +43,9 @@ const registerSubmitting = computed(() => (
 ))
 
 function setStatus(text, type = 'info') {
+  if (!text) {
+    return
+  }
   showToast(text, type)
 }
 
@@ -103,6 +117,28 @@ watch(mode, async () => {
   await nextTick()
   resetModeIndicator()
 })
+
+watch(
+  () => routeMode.value,
+  async (nextMode) => {
+    setStatus('', 'info')
+    if (nextMode === 'forgot-password') {
+      app.forgotPasswordForm.value.email = app.forgotPasswordForm.value.email || app.loginForm.value.email
+      app.authGuard.captchaCode = ''
+      try {
+        await app.refreshAuthGuard()
+      } catch (error) {
+        setStatus(error.message || '初始化图形验证码失败，请稍后重试', 'error')
+      }
+    }
+    if (nextMode === 'reset-password' && !resetToken.value) {
+      setStatus('重置链接无效或已过期，请重新申请。', 'error')
+    }
+    await nextTick()
+    resetModeIndicator()
+  },
+  { immediate: true },
+)
 
 watch(
   () => inviteCodeFromQuery.value,
@@ -208,12 +244,37 @@ async function handleRegister() {
   setStatus(result.message || '注册成功，请直接登录', 'success')
   mode.value = 'login'
 }
+
+async function handleForgotPassword() {
+  setStatus('', 'info')
+  if (!String(app.forgotPasswordForm.value.email || '').trim()) {
+    setStatus('请先输入邮箱', 'error')
+    return
+  }
+  const result = await app.submitForgotPassword()
+  setStatus(result.message, result.ok ? 'success' : 'error')
+}
+
+async function handleResetPassword() {
+  setStatus('', 'info')
+  if (!resetToken.value) {
+    setStatus('重置链接无效或已过期，请重新申请。', 'error')
+    return
+  }
+  const result = await app.submitResetPassword(resetToken.value)
+  if (!result.ok) {
+    setStatus(result.message, 'error')
+    return
+  }
+  setStatus(result.message || '密码已重置，请使用新密码登录', 'success')
+  router.replace('/login')
+}
 </script>
 
 <template>
   <div class="login-page">
     <section class="auth-panel app-shell-card">
-      <div class="mode-switch" ref="modeSwitchRef" role="tablist" aria-label="登录与注册">
+      <div v-if="showModeSwitch" class="mode-switch" ref="modeSwitchRef" role="tablist" aria-label="登录与注册">
         <div class="mode-switch__indicator" :style="modeIndicatorStyle" />
         <button
           type="button"
@@ -237,7 +298,12 @@ async function handleRegister() {
         </button>
       </div>
 
-      <form v-if="mode === 'login'" class="auth-form" @submit.prevent="handleSubmit">
+      <div v-else class="auth-card-head">
+        <h2>{{ isForgotPassword ? '忘记密码' : '重置密码' }}</h2>
+        <p>{{ isForgotPassword ? '输入子账户注册邮箱，我们将发送重置密码链接。' : '请设置新的子账户登录密码。' }}</p>
+      </div>
+
+      <form v-if="showModeSwitch && mode === 'login'" class="auth-form" @submit.prevent="handleSubmit">
         <label class="field">
           <span>邮箱</span>
           <input
@@ -256,12 +322,16 @@ async function handleRegister() {
           />
         </label>
 
+        <p class="auth-inline-link">
+          <RouterLink to="/forgot-password">忘记密码？</RouterLink>
+        </p>
+
         <button type="submit" class="primary-button submit-button" :disabled="app.loginLoading.value">
           {{ app.loginLoading.value ? '登录中...' : '进入工作台' }}
         </button>
       </form>
 
-      <form v-else class="auth-form" @submit.prevent="handleRegister">
+      <form v-else-if="showModeSwitch" class="auth-form" @submit.prevent="handleRegister">
         <label class="field">
           <span>名称</span>
           <input
@@ -331,6 +401,96 @@ async function handleRegister() {
           {{ registerSubmitting ? '处理中...' : '注册并绑定主账户' }}
         </button>
       </form>
+
+      <form v-else-if="isForgotPassword" class="auth-form" @submit.prevent="handleForgotPassword">
+        <label class="field">
+          <span>注册邮箱</span>
+          <input
+            v-model.trim="app.forgotPasswordForm.value.email"
+            type="email"
+            autocomplete="email"
+            placeholder="子账户登录邮箱"
+          />
+        </label>
+
+        <div class="field">
+          <span>图形验证码</span>
+          <div class="captcha-row">
+            <button
+              type="button"
+              class="captcha-preview"
+              :disabled="app.authGuard.refreshing"
+              @click="app.refreshAuthGuard"
+            >
+              <img
+                v-if="app.authGuard.captchaImage"
+                :key="app.authGuard.captchaId"
+                :src="app.authGuard.captchaImage"
+                alt="图形验证码"
+              />
+              <span v-else class="captcha-preview__placeholder">加载中</span>
+            </button>
+            <input
+              v-model.trim="app.authGuard.captchaCode"
+              type="text"
+              maxlength="6"
+              autocomplete="off"
+              placeholder="输入图中字符"
+            />
+            <button
+              type="button"
+              class="secondary-button refresh-button"
+              :disabled="app.authGuard.refreshing"
+              @click="app.refreshAuthGuard"
+            >
+              刷新
+            </button>
+          </div>
+          <small v-if="app.authGuard.solving || !app.authGuard.workloadReady" class="field-hint">
+            {{ app.authGuard.solving ? '正在进行人机校验…' : '准备人机校验…' }}
+          </small>
+        </div>
+
+        <button type="submit" class="primary-button submit-button" :disabled="forgotSubmitting">
+          {{ app.forgotPasswordLoading.value ? '发送中...' : forgotSubmitting ? '校验中...' : '发送重置邮件' }}
+        </button>
+      </form>
+
+      <form v-else-if="isResetPassword" class="auth-form" @submit.prevent="handleResetPassword">
+        <template v-if="resetToken">
+          <label class="field">
+            <span>新密码</span>
+            <input
+              v-model="app.resetPasswordForm.value.password"
+              type="password"
+              autocomplete="new-password"
+              placeholder="至少 6 位"
+            />
+          </label>
+          <label class="field">
+            <span>确认新密码</span>
+            <input
+              v-model="app.resetPasswordForm.value.confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="再次输入新密码"
+            />
+          </label>
+          <button type="submit" class="primary-button submit-button" :disabled="resetSubmitting">
+            {{ resetSubmitting ? '提交中...' : '确认重置' }}
+          </button>
+        </template>
+      </form>
+
+      <p v-if="!showModeSwitch" class="auth-footnote">
+        <template v-if="isForgotPassword">
+          想起密码了？
+          <RouterLink to="/login">返回登录</RouterLink>
+        </template>
+        <template v-else>
+          <RouterLink to="/login">返回登录</RouterLink>
+        </template>
+      </p>
     </section>
 
     <aside class="auth-shell__animation" aria-hidden="true">
@@ -555,9 +715,57 @@ async function handleRegister() {
   font-weight: 600;
 }
 
+.auth-card-head {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.auth-card-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.auth-card-head p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 .auth-form {
   display: grid;
   gap: 16px;
+}
+
+.auth-inline-link {
+  margin: -6px 0 0;
+  text-align: right;
+}
+
+.auth-inline-link a,
+.auth-footnote a {
+  color: #2783de;
+  text-decoration: none;
+}
+
+.auth-inline-link a:hover,
+.auth-footnote a:hover {
+  text-decoration: underline;
+}
+
+.auth-footnote {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-tertiary, #8b8b8b);
 }
 
 .field {

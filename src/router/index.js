@@ -22,7 +22,19 @@ const router = createRouter({
       path: '/login',
       name: 'sub-login',
       component: LoginView,
-      meta: { guestOnly: true },
+      meta: { guestOnly: true, mode: 'login' },
+    },
+    {
+      path: '/forgot-password',
+      name: 'sub-forgot-password',
+      component: LoginView,
+      meta: { guestOnly: true, mode: 'forgot-password' },
+    },
+    {
+      path: '/reset-password',
+      name: 'sub-reset-password',
+      component: LoginView,
+      meta: { guestOnly: true, mode: 'reset-password' },
     },
     {
       path: '/app',

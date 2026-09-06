@@ -17,6 +17,15 @@ const loginForm = ref({
   password: '',
 })
 
+const forgotPasswordForm = ref({
+  email: '',
+})
+
+const resetPasswordForm = ref({
+  password: '',
+  confirmPassword: '',
+})
+
 const createProviderKeyForm = ref({
   remark: '',
   api_key: '',
@@ -30,6 +39,8 @@ const sessionExpiresAt = ref('')
 
 const loginLoading = ref(false)
 const registerLoading = ref(false)
+const forgotPasswordLoading = ref(false)
+const resetPasswordLoading = ref(false)
 const sendingCode = ref(false)
 const sessionLoading = ref(false)
 const walletLoading = ref(false)
@@ -336,6 +347,68 @@ async function submitRegister() {
     return { ok: false, message: error.message || '注册失败，请稍后重试' }
   } finally {
     registerLoading.value = false
+  }
+}
+
+async function submitForgotPassword() {
+  const email = String(forgotPasswordForm.value.email || '').trim()
+  if (!email) {
+    return { ok: false, message: '请先输入邮箱地址' }
+  }
+  forgotPasswordLoading.value = true
+  try {
+    const guardPayload = await ensureAuthGuardPayload()
+    const response = await fetch(apiUrl('/api/sub-accounts/forgot-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, ...guardPayload }),
+    })
+    const data = await response.json()
+    if (shouldRefreshAuthGuard(response, data)) {
+      await refreshAuthGuard()
+    }
+    if (!response.ok) {
+      return { ok: false, message: data.message || '发送重置邮件失败，请稍后重试' }
+    }
+    return { ok: true, message: data.message || '如果该邮箱已注册子账户，我们已发送重置密码邮件，请查收' }
+  } catch (error) {
+    return { ok: false, message: error.message || '发送重置邮件失败，请稍后重试' }
+  } finally {
+    forgotPasswordLoading.value = false
+  }
+}
+
+async function submitResetPassword(token) {
+  const trimmedToken = String(token || '').trim()
+  if (!trimmedToken) {
+    return { ok: false, message: '重置链接无效或已过期' }
+  }
+  if (resetPasswordForm.value.password.length < 6) {
+    return { ok: false, message: '密码至少 6 位' }
+  }
+  if (resetPasswordForm.value.password !== resetPasswordForm.value.confirmPassword) {
+    return { ok: false, message: '两次输入的密码不一致' }
+  }
+  resetPasswordLoading.value = true
+  try {
+    const response = await fetch(apiUrl('/api/sub-accounts/reset-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: trimmedToken,
+        password: resetPasswordForm.value.password,
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '重置密码失败，请稍后重试' }
+    }
+    resetPasswordForm.value = { password: '', confirmPassword: '' }
+    return { ok: true, message: data.message || '密码已重置，请使用新密码登录' }
+  } catch (error) {
+    return { ok: false, message: error.message || '重置密码失败，请稍后重试' }
+  } finally {
+    resetPasswordLoading.value = false
   }
 }
 
@@ -716,6 +789,8 @@ export function useSubApp() {
   return {
     registerForm,
     loginForm,
+    forgotPasswordForm,
+    resetPasswordForm,
     createProviderKeyForm,
     authToken,
     currentUser,
@@ -724,6 +799,8 @@ export function useSubApp() {
     cooldown,
     loginLoading,
     registerLoading,
+    forgotPasswordLoading,
+    resetPasswordLoading,
     sendingCode,
     sessionLoading,
     walletLoading,
@@ -741,6 +818,8 @@ export function useSubApp() {
     refreshAuthGuard,
     sendCode,
     submitRegister,
+    submitForgotPassword,
+    submitResetPassword,
     submitLogin,
     logout,
     fetchWallet,
