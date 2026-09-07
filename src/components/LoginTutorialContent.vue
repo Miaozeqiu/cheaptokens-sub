@@ -16,7 +16,7 @@ const carouselImages = [
 
 const steps = [
   { label: '领取学生优惠券' },
-  { label: '创建 API_KEY' },
+  { label: '创建 API_KEY（电脑）' },
   { label: '填入网站' },
   { label: '注意事项（重要）' },
 ]
@@ -243,8 +243,11 @@ function selectCarouselItem(index) {
       />
       <div class="login-guide__content">
         <p class="login-guide__text"><span class="login-guide__marker">2. 在此处创建一个API_KEY</span></p>
+        <p class="login-guide__need-pc">
+          <span>这一步需要在电脑上操作</span>
+        </p>
         <p class="login-guide__desc">
-          进入<a
+          在电脑上打开<a
             class="login-guide__link"
             href="https://bailian.console.aliyun.com/cn-beijing?tab=model#/model-market"
             target="_blank"
@@ -256,7 +259,7 @@ function selectCarouselItem(index) {
 
     <div class="login-guide-step" :ref="(el) => setStepRef(el, 2)" data-step="2">
       <p class="login-guide-step__title"><span class="login-guide__marker">3. 将API_KEY 与 API_HOST填入网站</span></p>
-      <p class="login-guide-step__desc">网站会将你的tokens通过API调用的方式，分享给有需要的人</p>
+      <p class="login-guide-step__desc">打开本站「百炼 Key」页，把阿里云创建好的 API Key 和 API Host 填进去。网站会将你的 tokens 通过 API 调用的方式，分享给有需要的人。</p>
     </div>
 
     <div class="login-guide-pair">
@@ -582,6 +585,25 @@ function selectCarouselItem(index) {
   line-height: 1.6;
   color: var(--text-secondary);
   font-weight: 400;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+.login-guide__need-pc {
+  margin: 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.login-guide__need-pc span {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: hsla(19, 69.9%, 40.4%, 0.12);
+  color: hsl(19, 69.9%, 34%);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
   font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
 }
 
@@ -1106,6 +1128,10 @@ function selectCarouselItem(index) {
 
   .login-guide__content {
     gap: 10px;
+  }
+
+  .login-guide__need-pc {
+    justify-content: center;
   }
 
   .login-guide__desc {
