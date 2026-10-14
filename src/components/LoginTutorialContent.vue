@@ -15,15 +15,14 @@ const carouselImages = [
 ]
 
 const steps = [
-  { label: '领取学生优惠券' },
-  { label: '创建 API_KEY（电脑）' },
-  { label: '填入网站' },
-  { label: '注意事项（重要）' },
+  { label: '领取学生优惠券', hint: '打开阿里云活动页，领取学生 300 元优惠券。' },
+  { label: '创建 API_KEY（电脑）', hint: '在电脑上打开百炼平台，创建一个 API Key。' },
+  { label: '填入网站', hint: '把 API Key 和 API Host 填到本站「百炼 Key」页。' },
+  { label: '注意事项（重要）', hint: '免费额度将尽时不要操作。优惠券抵扣的是付费额度。' },
+  { label: '如何多拿10块钱', hint: '开启 50 节省计划，并在 5 分钟内购买 25 元节省计划。' },
 ]
 
 const activeStep = ref(0)
-const navVisible = ref(false)
-const stepEls = ref([])
 
 const quotaSceneRef = ref(null)
 const freePinRef = ref(null)
@@ -36,43 +35,15 @@ const debtWirePath = ref('')
 const freeWireEnds = ref(null)
 const debtWireEnds = ref(null)
 
-function setStepRef(el, index) {
-  if (el) {
-    stepEls.value[index] = el
+function selectStep(index) {
+  if (index < 0 || index >= steps.length) return
+  activeStep.value = index
+  if (index === 3) {
+    nextTick(() => {
+      updateQuotaWires()
+      window.requestAnimationFrame(updateQuotaWires)
+    })
   }
-}
-
-function updateActiveStep() {
-  const docEl = document.documentElement
-  const scrollBottom = window.scrollY + window.innerHeight
-  if (scrollBottom >= docEl.scrollHeight - 8) {
-    activeStep.value = steps.length - 1
-    return
-  }
-  const threshold = window.innerHeight * 0.4
-  let current = 0
-  stepEls.value.forEach((el, i) => {
-    if (!el) {
-      return
-    }
-    if (el.getBoundingClientRect().top <= threshold) {
-      current = i
-    }
-  })
-  activeStep.value = current
-}
-
-function handleScroll() {
-  navVisible.value = window.scrollY > 280
-  updateActiveStep()
-}
-
-function scrollToStep(index) {
-  const el = stepEls.value[index]
-  if (!el) {
-    return
-  }
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 function pinOnMeterInScene(el, sceneRect) {
@@ -145,9 +116,7 @@ function handleResize() {
 }
 
 onMounted(async () => {
-  window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('resize', handleResize)
-  handleScroll()
   await nextTick()
   updateQuotaWires()
   window.requestAnimationFrame(updateQuotaWires)
@@ -159,7 +128,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('resize', handleResize)
 })
 
@@ -174,23 +142,29 @@ function selectCarouselItem(index) {
 
 <template>
   <div class="login-tutorial">
-    <nav class="login-tutorial__nav" :class="{ 'is-visible': navVisible }" aria-label="步骤导航">
-      <button
-        v-for="(step, index) in steps"
-        :key="index"
-        type="button"
-        class="login-tutorial__nav-item"
-        :class="{ 'is-active': activeStep === index }"
-        @click="scrollToStep(index)"
-      >
-        <span class="login-tutorial__nav-num">{{ index + 1 }}</span>
-        <span class="login-tutorial__nav-label">{{ step.label }}</span>
-      </button>
-    </nav>
-    <p class="login-tutorial__intro">
-      阿里云赠送了学生300的优惠券，领取后可以按照下面的步骤进行变现
-    </p>
-    <div class="login-guide" :ref="(el) => setStepRef(el, 0)" data-step="0">
+    <div class="tutorial-stepper" aria-label="步骤导航">
+      <template v-for="(step, index) in steps" :key="step.label">
+        <button
+          type="button"
+          class="step"
+          :class="{ completed: index < activeStep, active: index === activeStep }"
+          @click="selectStep(index)"
+        >
+          <span class="step-indicator">
+            <svg v-if="index < activeStep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span v-else>{{ index + 1 }}</span>
+          </span>
+          <span class="step-text">{{ step.label }}</span>
+          <span class="step-tooltip">
+            <strong>步骤 {{ index + 1 }}：{{ step.label }}</strong><br>
+            {{ step.hint }}
+          </span>
+        </button>
+        <div v-if="index < steps.length - 1" class="step-connector" :class="{ completed: index < activeStep }"></div>
+      </template>
+    </div>
+    <div v-show="activeStep === 0" class="login-tutorial__panel">
+    <div class="login-guide">
       <img
         class="login-guide__image"
         src="/aliyun-student-coupon.png"
@@ -234,8 +208,10 @@ function selectCarouselItem(index) {
       </div>
       <p class="login-guide-carousel__caption">可以通过这里，检查券是否领取完成</p>
     </section>
+    </div>
 
-    <div class="login-guide login-guide--secondary" :ref="(el) => setStepRef(el, 1)" data-step="1">
+    <div v-show="activeStep === 1" class="login-tutorial__panel">
+    <div class="login-guide login-guide--secondary">
       <img
         class="login-guide__image"
         src="/aliyun-api-key-guide.png"
@@ -256,8 +232,10 @@ function selectCarouselItem(index) {
         </p>
       </div>
     </div>
+    </div>
 
-    <div class="login-guide-step" :ref="(el) => setStepRef(el, 2)" data-step="2">
+    <div v-show="activeStep === 2" class="login-tutorial__panel">
+    <div class="login-guide-step">
       <p class="login-guide-step__title"><span class="login-guide__marker">3. 将API_KEY 与 API_HOST填入网站</span></p>
       <p class="login-guide-step__desc">打开本站「百炼 Key」页，把阿里云创建好的 API Key 和 API Host 填进去。网站会将你的 tokens 通过 API 调用的方式，分享给有需要的人。</p>
     </div>
@@ -279,11 +257,11 @@ function selectCarouselItem(index) {
         alt="填写 API Key 与 API Host 的表单截图"
       />
     </div>
+    </div>
 
     <section
-      class="login-guide-quota"
-      :ref="(el) => setStepRef(el, 3)"
-      data-step="3"
+      v-show="activeStep === 3"
+      class="login-guide-quota login-tutorial__panel"
       aria-label="免费额度与欠款说明"
     >
       <div class="login-guide-quota__divider" aria-hidden="true" />
@@ -408,112 +386,221 @@ function selectCarouselItem(index) {
         </div>
       </div>
     </section>
+
+    <section v-show="activeStep === 4" class="login-guide-step login-guide-earn login-tutorial__panel">
+      <p class="login-guide-step__title"><span class="login-guide__marker">5. 如何多拿 10 块钱</span></p>
+      <p class="login-guide-earn__warn">
+        按下面步骤操作，开启后5分钟内购买<br>
+        <strong>千万不要只开不买！！！</strong><br>
+        <strong>千万不要只开不买！！！</strong><br>
+        <strong>千万不要只开不买！！！</strong>
+      </p>
+      <div class="login-guide-earn__row">
+        <img
+          class="login-guide-earn__shot"
+          src="/savings50-key.png"
+          alt="百炼 Key 页：在 50节省 一列点击未开启"
+        />
+        <p class="login-guide-earn__label"><span class="login-guide__marker">1. 先开启</span></p>
+      </div>
+      <p class="login-guide-step__desc">
+        请在
+        <a
+          class="login-guide__link"
+          href="https://university.aliyun.com/buycenter/?spm=5176.28623341.J_dE6iKTQZWCaqh5bpcaeTX.2.61d13180Oo9OhV"
+          target="_blank"
+          rel="noopener noreferrer"
+        >此处</a>
+        购买「大模型服务」中的【高校】入门型 AI 通用节省计划，点「立即购买」。
+      </p>
+      <div class="login-guide-earn__row">
+        <img
+          class="login-guide-earn__shot"
+          src="/savings50-buy.png"
+          alt="云工开物学生权益页：先点顶部学生权益，再在大模型服务里购买入门型 AI 通用节省计划"
+        />
+        <p class="login-guide-earn__label"><span class="login-guide__marker">2. 再购买</span></p>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .login-tutorial {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.login-tutorial__nav {
-  position: fixed;
-  left: 28px;
-  top: 50%;
-  transform: translateY(-50%) translateX(-12px);
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.32s ease, transform 0.32s ease;
-}
-
-.login-tutorial__nav.is-visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
-}
-
-.login-tutorial__nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 2px 4px;
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
-}
-
-.login-tutorial__nav-item:hover {
-  background: transparent;
-}
-
-.login-tutorial__nav-item:hover .login-tutorial__nav-num,
-.login-tutorial__nav-item:hover .login-tutorial__nav-label {
-  color: var(--text-primary, #0f172a);
-}
-
-.login-tutorial__nav-num {
+.tutorial-stepper {
+  --stepper-text-primary: #56301e;
+  --stepper-text-secondary: #9ca3af;
+  --stepper-active-text: hsl(19, 69.9%, 40.4%);
+  --stepper-completed-bg: hsl(19, 69.9%, 40.4%);
+  --stepper-tooltip-bg: rgba(255, 255, 255, 0.92);
+  --stepper-tooltip-border: hsla(19, 69.9%, 40.4%, 0.18);
+  --stepper-tooltip-shadow: 0 8px 32px rgba(86, 48, 30, 0.12);
+  --stepper-pulse-start: hsla(19, 69.9%, 40.4%, 0.45);
+  --stepper-pulse-end: hsla(19, 69.9%, 40.4%, 0);
+  --stepper-connector-bg: hsla(19, 69.9%, 40.4%, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #9ca3af;
-  font-size: 15px;
-  font-weight: 600;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: min(100%, 1120px);
+  min-height: 36px;
+  margin: 0 auto 28px;
+  padding: 2px 12px;
+  box-sizing: border-box;
 }
 
-.login-tutorial__nav-label {
-  font-size: 13px;
-  line-height: 1.4;
-  color: #9ca3af;
-  white-space: nowrap;
-  transition: color 0.2s ease;
-}
-
-.login-tutorial__nav-item.is-active .login-tutorial__nav-num {
-  color: hsl(19, 69.9%, 40.4%);
-  text-shadow: 0 0 8px hsla(19, 69.9%, 40.4%, 0.85), 0 0 18px hsla(19, 69.9%, 40.4%, 0.45);
-}
-
-.login-tutorial__nav-item.is-active .login-tutorial__nav-label {
-  color: hsl(19, 69.9%, 40.4%);
-  font-weight: 600;
-}
-
-.login-tutorial__intro {
-  margin: 0 0 24px;
-  padding: 16px 24px;
-  text-align: center;
-  font-size: 14px;
-  line-height: 1.6;
-  font-weight: 400;
-  color: hsl(19, 69.9%, 40.4%);
-  background: hsla(19, 69.9%, 40.4%, 0.1);
+.step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 0;
   border-radius: 12px;
-  font-family: -apple-system, 'Noto Sans', 'miui', 'SF Pro Text', sans-serif, 'PingFang SC', 'Lantinghei SC', 'Microsoft Yahei', 'Hiragino Sans GB', 'Microsoft Sans Serif', 'WenQuanYi Micro Hei';
+  background: transparent;
+  color: var(--stepper-text-secondary);
+  cursor: pointer;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+.step:not(.active):not(.completed) .step-indicator,
+.step:not(.active):not(.completed) .step-text {
+  opacity: 0.5;
+}
+
+.step.active {
+  background: hsla(19, 69.9%, 40.4%, 0.08);
+}
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--stepper-text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.step.active .step-indicator {
+  background: var(--stepper-active-text);
+  color: #fff;
+  animation: tutorial-pulse-ring 2s infinite;
+}
+
+.step.completed .step-indicator {
+  background: var(--stepper-completed-bg);
+  color: #fff;
+}
+
+.step-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--stepper-text-secondary);
+  white-space: nowrap;
+}
+
+.step.completed .step-text {
+  color: var(--stepper-text-primary);
+}
+
+.step.active .step-text {
+  color: var(--stepper-active-text);
+}
+
+.step-tooltip {
+  position: absolute;
+  top: 130%;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--stepper-tooltip-bg);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid var(--stepper-tooltip-border);
+  box-shadow: var(--stepper-tooltip-shadow);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--stepper-text-primary);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  z-index: 20;
+  line-height: 1.6;
+  text-align: left;
+  pointer-events: none;
+}
+
+.step-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--stepper-tooltip-bg);
+  border-left: 1px solid var(--stepper-tooltip-border);
+  border-top: 1px solid var(--stepper-tooltip-border);
+}
+
+.step-tooltip strong {
+  font-size: 13px;
+  color: var(--stepper-active-text);
+}
+
+.step:hover .step-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.step-connector {
+  width: 20px;
+  height: 2px;
+  background: var(--stepper-connector-bg);
+  border-radius: 1px;
+}
+
+.step-connector.completed {
+  background: var(--stepper-completed-bg);
+}
+
+@keyframes tutorial-pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--stepper-pulse-start); }
+  70% { box-shadow: 0 0 0 5px var(--stepper-pulse-end); }
+  100% { box-shadow: 0 0 0 0 var(--stepper-pulse-end); }
+}
+
+.login-tutorial__panel {
+  width: min(100%, 1120px);
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .login-guide {
-  width: min(100%, 900px);
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1.72fr) minmax(220px, 0.9fr);
   align-items: center;
@@ -526,7 +613,7 @@ function selectCarouselItem(index) {
 }
 
 .login-guide-pair {
-  width: min(100%, 820px);
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
@@ -561,10 +648,42 @@ function selectCarouselItem(index) {
 }
 
 .login-guide-step {
-  width: min(100%, 1120px);
   display: grid;
   gap: 14px;
   margin-top: 72px;
+}
+
+.login-guide-step.login-guide-earn {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  min-width: 0;
+  justify-items: center;
+}
+
+.login-guide-earn .login-guide-step__title,
+.login-guide-earn .login-guide-step__desc,
+.login-guide-earn__warn {
+  width: min(100%, 640px);
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.login-guide-earn__row {
+  width: min(100%, 860px);
+  display: grid;
+  grid-template-columns: minmax(0, 640px) auto;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+}
+
+.login-guide-earn__label {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  font-family: var(--font-cjk-serif);
+  white-space: nowrap;
 }
 
 .login-guide-step__title,
@@ -586,6 +705,30 @@ function selectCarouselItem(index) {
   color: var(--text-secondary);
   font-weight: 400;
   font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+.login-guide-earn__warn {
+  margin: 0;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.7;
+  color: var(--text-primary);
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans SC", sans-serif;
+}
+
+.login-guide-earn__warn strong {
+  color: #c62828;
+  font-weight: 800;
+}
+
+.login-guide-earn__shot {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .login-guide__need-pc {
@@ -663,7 +806,7 @@ function selectCarouselItem(index) {
 }
 
 .login-guide-carousel {
-  width: min(100%, 920px);
+  width: 100%;
   margin-top: 32px;
   margin-bottom: 64px;
   display: grid;
@@ -739,6 +882,7 @@ function selectCarouselItem(index) {
 
 .login-guide-quota {
   width: min(100%, 1120px);
+  max-width: 1120px;
   margin-top: 72px;
   margin-bottom: 24px;
   display: grid;
@@ -1064,20 +1208,27 @@ function selectCarouselItem(index) {
 }
 
 @media (max-width: 1100px) {
-  .login-tutorial__nav-label {
-    display: none;
-  }
-
-  .login-tutorial__nav {
-    left: 16px;
-    padding: 10px 6px;
-    gap: 10px;
+  .tutorial-stepper {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
   }
 }
 
 @media (max-width: 640px) {
-  .login-tutorial__nav {
+  .step-text {
     display: none;
+  }
+
+  .step-connector {
+    width: 12px;
+  }
+
+  .login-guide-earn__row {
+    width: 100%;
+    grid-template-columns: 1fr;
+    justify-items: center;
   }
 
   .login-guide {

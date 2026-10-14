@@ -4,7 +4,6 @@ import LoginTutorialContent from '../components/LoginTutorialContent.vue'
 
 <template>
   <div class="tutorial-page">
-    <p class="tutorial-page__caption" aria-hidden="true">分享你的Tokens给其他人</p>
     <LoginTutorialContent />
   </div>
 </template>
@@ -12,32 +11,19 @@ import LoginTutorialContent from '../components/LoginTutorialContent.vue'
 <style scoped>
 .tutorial-page {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 8px 0 28px;
-}
-
-.tutorial-page__caption {
-  margin: 0 auto 24px;
-  width: min(100%, 440px);
-  text-align: center;
-  font-size: 64px;
-  font-weight: 900;
-  color: #56301e;
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  font-family: var(--font-cjk-serif);
+  overflow-x: clip;
 }
 
 @media (max-width: 640px) {
   .tutorial-page {
     padding: 0 0 20px;
-  }
-
-  .tutorial-page__caption {
-    font-size: 26px;
   }
 }
 </style>

@@ -463,7 +463,7 @@ onMounted(() => {
 
     <Transition name="provider-dialog">
       <div v-if="savings50Dialog" class="dialog-overlay" @mousedown.self="closeSavings50Dialog">
-        <div class="dialog-card dialog-card--compact">
+        <div class="dialog-card" :class="savings50Dialog.next ? 'savings-dialog' : 'dialog-card--compact'">
           <div class="dialog-header">
             <div class="provider-dialog-header-actions">
               <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeSavings50Dialog">
@@ -479,7 +479,24 @@ onMounted(() => {
           <div class="provider-dialog-form provider-dialog-form--compact">
             <h3 class="savings-dialog-title">{{ savings50Dialog.title }}</h3>
             <p v-if="savings50Dialog.next" class="savings-earn">大约可以多拿 10 块</p>
-            <p class="hint-text">{{ savings50Dialog.body }}</p>
+            <p v-if="savings50Dialog.next" class="savings-warn">
+              开启后5分钟内购买<br>
+              <strong>千万不要只开不买！！！</strong><br>
+              <strong>千万不要只开不买！！！</strong><br>
+              <strong>千万不要只开不买！！！</strong>
+            </p>
+            <p v-if="!savings50Dialog.next" class="hint-text">{{ savings50Dialog.body }}</p>
+            <p v-if="savings50Dialog.next" class="savings-buy">
+              请在
+              <a href="https://university.aliyun.com/buycenter/?spm=5176.28623341.J_dE6iKTQZWCaqh5bpcaeTX.2.61d13180Oo9OhV" target="_blank" rel="noreferrer">此处</a>
+              购买「大模型服务」中的【高校】入门型 AI 通用节省计划，点「立即购买」。
+            </p>
+            <img
+              v-if="savings50Dialog.next"
+              class="savings-shot"
+              src="/savings50-plan.png"
+              alt="云工开物学生权益页：先点顶部学生权益，再在大模型服务里购买入门型 AI 通用节省计划"
+            />
           </div>
         </div>
       </div>
@@ -749,12 +766,53 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
+.savings-dialog {
+  width: min(100%, 640px);
+  max-height: min(86dvh, 760px);
+  overflow: auto;
+}
+
 .savings-earn {
   margin: 8px 0 0;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--success);
+}
+
+.savings-warn {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.savings-warn strong {
+  color: #c62828;
+  font-weight: 800;
+}
+
+.savings-buy {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.savings-buy a {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.savings-shot {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin-top: 12px;
+  border-radius: 12px;
 }
 
 .ratio-chip {
