@@ -130,6 +130,23 @@ async function handleSaveRatio() {
   }
 }
 
+function savings50Label(record) {
+  const spent = Number(record.savings50_spent || 0).toFixed(2)
+  if (record.savings50_enabled) return `已开启 ${spent}/45`
+  if (Number(record.savings50_spent || 0) > 0) return `已关闭 ${spent}/45`
+  return '未开启'
+}
+
+async function handleToggleSavings50(record) {
+  const next = !record.savings50_enabled
+  const message = next
+    ? '开启后，这个 Key 只会用于 wan3.0-video 和 wan3.0-video-prime，这两个模型也只使用已开启的 Key。原价消耗超过 ¥45 会自动关闭。确认开启？'
+    : '关闭后，这个 Key 不再参与 wan3.0-video 和 wan3.0-video-prime。确认关闭？'
+  if (!window.confirm(message)) return
+  const result = await app.updateProviderKeySavings50(record.id, next)
+  setNotice(result.message || (result.ok ? '更新成功' : '更新失败'), result.ok ? 'success' : 'error')
+}
+
 async function handleSaveRemark() {
   if (!editingKeyId.value) return
   const result = await app.updateProviderKeyRemark(editingKeyId.value, editingRemark.value)
@@ -221,6 +238,7 @@ onMounted(() => {
                 <tr>
                   <th>备注</th>
                   <th>状态</th>
+                  <th>50节省</th>
                   <th>倍率</th>
                   <th>总收益</th>
                   <th>Key 预览</th>
@@ -239,6 +257,17 @@ onMounted(() => {
                     <span class="pill status-pill" :class="statusChipClass(record.status)">
                       {{ formatProviderKeyStatus(record.status) }}
                     </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="plan-chip"
+                      :class="{ on: record.savings50_enabled }"
+                      :disabled="app.providerKeyLoading.value"
+                      @click="handleToggleSavings50(record)"
+                    >
+                      {{ savings50Label(record) }}
+                    </button>
                   </td>
                   <td>
                     <button type="button" class="ratio-chip" @click="openRatioEditor(record)">
@@ -644,6 +673,28 @@ onMounted(() => {
 .status-pill.status-muted {
   background: var(--surface-muted);
   color: var(--text-secondary);
+}
+
+.plan-chip {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.plan-chip.on {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.plan-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .ratio-chip {

@@ -557,6 +557,27 @@ async function updateProviderKeyRatio(id, ratio) {
   }
 }
 
+async function updateProviderKeySavings50(id, enabled) {
+  providerKeyLoading.value = true
+  try {
+    const response = await authFetch(`/api/provider-keys/${id}/savings50`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: Boolean(enabled) }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      return { ok: false, message: data.message || '更新 50 节省计划失败' }
+    }
+    await fetchProviderKeys()
+    return { ok: true, message: data.message || '更新成功' }
+  } catch {
+    return { ok: false, message: '更新 50 节省计划失败' }
+  } finally {
+    providerKeyLoading.value = false
+  }
+}
+
 async function updateProviderKeyRemark(id, remark) {
   providerKeyLoading.value = true
   try {
@@ -828,6 +849,7 @@ export function useSubApp() {
     deleteProviderKey,
     updateProviderKeyRatio,
     updateProviderKeyRemark,
+    updateProviderKeySavings50,
     fetchRevenueShares,
     fetchWithdrawalRequests,
     createWithdrawalRequest,
