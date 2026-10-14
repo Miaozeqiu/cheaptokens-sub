@@ -13,6 +13,7 @@ const editingKeyId = ref(null)
 const editingRatio = ref(0.8)
 const editingRemark = ref('')
 const deletingKeyId = ref(null)
+const savings50Dialog = ref(null)
 
 const activeKeyCount = computed(() =>
   app.providerKeys.value.filter((item) => item.status === 'active').length,
@@ -132,19 +133,39 @@ async function handleSaveRatio() {
 
 function savings50Label(record) {
   const spent = Number(record.savings50_spent || 0).toFixed(2)
+  if (record.savings50_locked) return '已结束'
   if (record.savings50_enabled) return `已开启 ${spent}/45`
-  if (Number(record.savings50_spent || 0) > 0) return `已关闭 ${spent}/45`
   return '未开启'
 }
 
-async function handleToggleSavings50(record) {
+function savings50Disabled(record) {
+  return app.providerKeyLoading.value || record.savings50_locked || (!record.savings50_enabled && record.status !== 'active')
+}
+
+function openSavings50Dialog(record) {
+  if (record.savings50_locked || (!record.savings50_enabled && record.status !== 'active')) return
   const next = !record.savings50_enabled
-  const message = next
-    ? '开启后，这个 Key 只会用于 wan3.0-video 和 wan3.0-video-prime，这两个模型也只使用已开启的 Key。原价消耗超过 ¥45 会自动关闭。确认开启？'
-    : '关闭后，这个 Key 不再参与 wan3.0-video 和 wan3.0-video-prime。确认关闭？'
-  if (!window.confirm(message)) return
-  const result = await app.updateProviderKeySavings50(record.id, next)
+  savings50Dialog.value = {
+    id: record.id,
+    next,
+    title: next ? '开启 50 节省计划' : '关闭 50 节省计划',
+    body: next
+      ? '需要先购买 25 元的节省计划（学生券可以 0 元拿下）。请先点开启，然后在 5 分钟内完成购买。这 5 分钟内 Key 不会被调用。之后它只会用于 wan3.0-video 和 wan3.0-video-prime。原价消耗超过 ¥45 会自动关闭。手动或自动关闭后，这把 Key 不能再次开启。'
+      : '关闭后，这个 Key 不再参与 wan3.0-video 和 wan3.0-video-prime，并且不能再次开启。',
+  }
+}
+
+function closeSavings50Dialog() {
+  if (app.providerKeyLoading.value) return
+  savings50Dialog.value = null
+}
+
+async function confirmSavings50() {
+  if (!savings50Dialog.value) return
+  const { id, next } = savings50Dialog.value
+  const result = await app.updateProviderKeySavings50(id, next)
   setNotice(result.message || (result.ok ? '更新成功' : '更新失败'), result.ok ? 'success' : 'error')
+  if (result.ok) savings50Dialog.value = null
 }
 
 async function handleSaveRemark() {
@@ -263,8 +284,8 @@ onMounted(() => {
                       type="button"
                       class="plan-chip"
                       :class="{ on: record.savings50_enabled }"
-                      :disabled="app.providerKeyLoading.value"
-                      @click="handleToggleSavings50(record)"
+                      :disabled="savings50Disabled(record)"
+                      @click="openSavings50Dialog(record)"
                     >
                       {{ savings50Label(record) }}
                     </button>
@@ -436,6 +457,30 @@ onMounted(() => {
           </label>
 
           </form>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="provider-dialog">
+      <div v-if="savings50Dialog" class="dialog-overlay" @mousedown.self="closeSavings50Dialog">
+        <div class="dialog-card dialog-card--compact">
+          <div class="dialog-header">
+            <div class="provider-dialog-header-actions">
+              <button type="button" class="dialog-close-icon" :disabled="app.providerKeyLoading.value" @click="closeSavings50Dialog">
+                <svg viewBox="0 0 1024 1024" aria-hidden="true">
+                  <path d="M566.98 521.1 856.88 231.19c14.64-14.63 14.64-38.76 0-53.39l-1.58-1.58c-14.63-14.64-38.76-14.64-53.39 0L512 466.52 222.09 176.21c-14.63-14.64-38.76-14.64-53.39 0l-1.58 1.58c-15.03 14.63-15.03 38.76 0 53.39l289.91 289.91L167.12 811c-14.64 14.63-14.64 38.76 0 53.39l1.58 1.58c14.63 14.63 38.76 14.63 53.39 0L512 576.07l289.91 289.91c14.63 14.63 38.76 14.63 53.39 0l1.58-1.58c14.64-14.63 14.64-38.76 0-53.39L566.98 521.1z" fill="currentColor" />
+                </svg>
+              </button>
+              <button type="button" class="primary-button provider-dialog-submit" :disabled="app.providerKeyLoading.value" @click="confirmSavings50">
+                {{ app.providerKeyLoading.value ? '保存中...' : (savings50Dialog.next ? '确认开启' : '确认关闭') }}
+              </button>
+            </div>
+          </div>
+          <div class="provider-dialog-form provider-dialog-form--compact">
+            <h3 class="savings-dialog-title">{{ savings50Dialog.title }}</h3>
+            <p v-if="savings50Dialog.next" class="savings-earn">大约可以多拿 10 块</p>
+            <p class="hint-text">{{ savings50Dialog.body }}</p>
+          </div>
         </div>
       </div>
     </Transition>
@@ -695,6 +740,21 @@ onMounted(() => {
 .plan-chip:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.savings-dialog-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 750;
+  color: var(--text-primary);
+}
+
+.savings-earn {
+  margin: 8px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--success);
 }
 
 .ratio-chip {
