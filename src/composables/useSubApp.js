@@ -93,6 +93,7 @@ const parentContact = ref({
   wechat_account: '',
   wechat_image_url: '',
   wechat_image_proxy_path: '',
+  qq_group_url: '',
   updated_at: '',
 })
 
@@ -725,6 +726,7 @@ async function fetchParentContact() {
       wechat_account: String(data.wechat_account || ''),
       wechat_image_url: String(data.wechat_image_url || ''),
       wechat_image_proxy_path: String(data.wechat_image_proxy_path || ''),
+      qq_group_url: String(data.qq_group_url || ''),
       updated_at: data.updated_at || '',
     }
     return { ok: true }

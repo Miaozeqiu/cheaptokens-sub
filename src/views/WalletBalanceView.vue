@@ -4,6 +4,8 @@ import { showToast } from '../composables/useToast'
 import { useSubApp } from '../composables/useSubApp'
 import WithdrawContactPrompt from '../components/WithdrawContactPrompt.vue'
 
+const DEFAULT_QQ_GROUP_URL = 'https://qm.qq.com/q/januXhbqfY'
+
 const app = useSubApp()
 const withdrawalPage = ref(1)
 const withdrawalPageSize = ref(10)
@@ -24,6 +26,11 @@ const hasPaymentMethod = computed(() => {
   const hasWechat = Boolean(p.wechat_account?.trim()) || Boolean(p.wechat_qr_code_proxy_path?.trim())
   const hasAlipay = Boolean(p.alipay_account?.trim()) || Boolean(p.alipay_qr_code_proxy_path?.trim())
   return hasWechat || hasAlipay
+})
+
+const qqGroupUrl = computed(() => {
+  const custom = String(app.parentContact.value?.qq_group_url || '').trim()
+  return custom || DEFAULT_QQ_GROUP_URL
 })
 
 function formatTableTime(value) {
@@ -114,6 +121,7 @@ onMounted(async () => {
     app.fetchWallet(),
     app.fetchWithdrawalRequests(withdrawalPage.value, withdrawalPageSize.value),
     app.fetchPayoutSettings(),
+    app.fetchParentContact(),
   ])
 })
 </script>
@@ -250,7 +258,7 @@ onMounted(async () => {
     <Teleport to="body">
       <a
         class="wallet-qq-entry"
-        href="https://qm.qq.com/q/januXhbqfY"
+        :href="qqGroupUrl"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="加入QQ群"
