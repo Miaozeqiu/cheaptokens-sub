@@ -632,6 +632,12 @@ function formatMoney(value, digits = 2) {
   return `¥${Number(value || 0).toFixed(places)}`
 }
 
+function floorCents(value) {
+  const amount = Number(value || 0)
+  if (!Number.isFinite(amount) || amount <= 0) return 0
+  return Math.floor(amount * 100 + 1e-8) / 100
+}
+
 function formatRatio(value) {
   const numeric = Number(value || 0)
   return `${(numeric * 100).toFixed(1)}%`
@@ -668,7 +674,7 @@ async function createWithdrawalRequest(amount, remark) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount: Number(amount),
+        amount: floorCents(amount),
         remark: normalizedRemark,
       }),
     })
@@ -866,6 +872,7 @@ export function useSubApp() {
     apiUrl,
     formatDateTime,
     formatMoney,
+    floorCents,
     formatRatio,
     fetchPayoutSettings,
     updatePayoutSettings,

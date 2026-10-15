@@ -219,13 +219,19 @@ function closeWithdrawalHistoryDialog() {
 }
 
 async function handleSubmit() {
-  const amount = Number(createForm.amount)
+  const balance = Number(app.wallet.value?.balance || 0)
+  const maxAmount = app.floorCents(balance)
+  let amount = Number(createForm.amount)
+  if (amount > maxAmount && amount <= Number(balance.toFixed(2)) + 1e-9) {
+    amount = maxAmount
+    createForm.amount = amount
+  }
   const remark = String(createForm.remark || '').trim()
   if (!amount || amount <= 0) {
     setMessage('请输入有效的提现金额', 'error')
     return
   }
-  if (amount > Number(app.wallet.value?.balance || 0)) {
+  if (amount > maxAmount) {
     setMessage('提现金额不能超过当前余额', 'error')
     return
   }
