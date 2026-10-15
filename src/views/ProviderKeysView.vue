@@ -134,7 +134,7 @@ async function handleSaveRatio() {
 function savings50Label(record) {
   const spent = Number(record.savings50_spent || 0).toFixed(2)
   if (record.savings50_locked) return '已结束'
-  if (record.savings50_enabled) return `已开启 ${spent}/45`
+  if (record.savings50_enabled) return `已开启 ${spent}/50`
   return '未开启'
 }
 
@@ -150,7 +150,7 @@ function openSavings50Dialog(record) {
     next,
     title: next ? '开启 50 节省计划' : '关闭 50 节省计划',
     body: next
-      ? '需要先购买 25 元的节省计划（学生券可以 0 元拿下）。请先点开启，然后在 5 分钟内完成购买。这 5 分钟内 Key 不会被调用。之后它只会用于 wan3.0-video 和 wan3.0-video-prime。原价消耗超过 ¥45 会自动关闭。手动或自动关闭后，这把 Key 不能再次开启。'
+      ? '需要先购买 25 元的节省计划（学生券可以 0 元拿下）。请先点开启，然后在 5 分钟内完成购买。这 5 分钟内 Key 不会被调用。之后它只会用于 wan3.0-video 和 wan3.0-video-prime。原价消耗达到 ¥50 会自动关闭，不允许超过 ¥50。手动或自动关闭后，这把 Key 不能再次开启。'
       : '关闭后，这个 Key 不再参与 wan3.0-video 和 wan3.0-video-prime，并且不能再次开启。',
   }
 }
@@ -481,6 +481,7 @@ onMounted(() => {
             <p v-if="savings50Dialog.next" class="savings-earn">大约可以多拿 10 块</p>
             <p v-if="savings50Dialog.next" class="savings-warn">
               开启后5分钟内购买<br>
+              剩下最后25-30元余额再买<br>
               <strong>千万不要只开不买！！！</strong><br>
               <strong>千万不要只开不买！！！</strong><br>
               <strong>千万不要只开不买！！！</strong>

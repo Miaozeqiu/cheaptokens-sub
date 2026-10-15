@@ -6,4 +6,8 @@ import './assets/base.css'
 import App from './App.vue'
 import router from './router'
 
+window.openSavings50Dialog = function openSavings50Dialog() {
+  window.dispatchEvent(new Event('cheaptokens:open-savings50-dialog'))
+}
+
 createApp(App).use(router).mount('#app')

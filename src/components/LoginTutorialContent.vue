@@ -391,6 +391,7 @@ function selectCarouselItem(index) {
       <p class="login-guide-step__title"><span class="login-guide__marker">5. 如何多拿 10 块钱</span></p>
       <p class="login-guide-earn__warn">
         按下面步骤操作，开启后5分钟内购买<br>
+        剩下最后25-30元余额再买<br>
         <strong>千万不要只开不买！！！</strong><br>
         <strong>千万不要只开不买！！！</strong><br>
         <strong>千万不要只开不买！！！</strong>
